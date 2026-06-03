@@ -13,7 +13,6 @@ env:
   MAX_IMAGE_SIZE_MB: "1200"
   MAX_HIGH_VULNS: "10"
   MAX_MEDIUM_VULNS: "30"
-  HEXAFLOW_CODE_MAX_FILES: "30"
 
 jobs:
   security-gate:
@@ -36,11 +35,50 @@ jobs:
           ref: main
           path: HexaFlow-AI
 
+      - name: Resolve config
+        id: config
+        env:
+          _DOCKERFILE: ${{ vars.HEXAFLOW_DOCKERFILE }}
+          _CODE_EXTENSIONS: ${{ vars.HEXAFLOW_CODE_EXTENSIONS }}
+          _CODE_PATHS: ${{ vars.HEXAFLOW_CODE_PATHS }}
+          _CODE_MAX_FILES: ${{ vars.HEXAFLOW_CODE_MAX_FILES }}
+        run: |
+          if [ -n "$_DOCKERFILE" ]; then
+            if [ ! -f "$_DOCKERFILE" ]; then
+              echo "Configured HEXAFLOW_DOCKERFILE does not exist: $_DOCKERFILE"
+              find . -name "Dockerfile" -not -path "*/node_modules/*" -not -path "*/.git/*" | sort
+              exit 1
+            fi
+            DOCKERFILE="$_DOCKERFILE"
+          elif [ -f "Dockerfile" ]; then
+            DOCKERFILE="Dockerfile"
+          else
+            DOCKERFILE=$(find . -maxdepth 4 -name "Dockerfile" -not -path "*/node_modules/*" -not -path "*/.git/*" | sort | head -1 | sed 's|^\./||')
+            if [ -z "$DOCKERFILE" ]; then
+              echo "No Dockerfile found."
+              exit 1
+            fi
+          fi
+
+          CODE_EXTENSIONS="${_CODE_EXTENSIONS:-.ts .tsx .js .jsx .json .yml .yaml .prisma .mjs .cjs}"
+          CODE_PATHS="${_CODE_PATHS:-src prisma .github Dockerfile package.json package-lock.json prisma.config.ts tsconfig.json tsconfig.build.json nest-cli.json}"
+          CODE_MAX_FILES="${_CODE_MAX_FILES:-30}"
+
+          echo "dockerfile=${DOCKERFILE}" >> "$GITHUB_OUTPUT"
+          echo "code_extensions=${CODE_EXTENSIONS}" >> "$GITHUB_OUTPUT"
+          echo "code_paths=${CODE_PATHS}" >> "$GITHUB_OUTPUT"
+          echo "code_max_files=${CODE_MAX_FILES}" >> "$GITHUB_OUTPUT"
+
+          echo "Dockerfile     : ${DOCKERFILE}"
+          echo "Code extensions: ${CODE_EXTENSIONS}"
+          echo "Code paths     : ${CODE_PATHS}"
+          echo "Max code files : ${CODE_MAX_FILES}"
+
       - name: Set lowercase image name
         id: vars
         run: |
           IMAGE_NAME=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
-          echo "image_name=${IMAGE_NAME}:${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          echo "image=${IMAGE_NAME}:${{ github.sha }}" >> "$GITHUB_OUTPUT"
 
       - name: Restore Ollama model cache
         id: ollama-cache
@@ -111,9 +149,7 @@ jobs:
           import json
           import sys
 
-          with open("ollama-verification.json", encoding="utf-8") as response:
-              data = json.load(response)
-
+          data = json.load(open("ollama-verification.json", encoding="utf-8"))
           source = data.get("source")
           print(f"HexaFlow verification source: {source}")
           if source != "ai_model":
@@ -124,6 +160,10 @@ jobs:
       - name: Detect changed code files
         id: code_files
         shell: bash
+        env:
+          CODE_EXTENSIONS: ${{ steps.config.outputs.code_extensions }}
+          CODE_PATHS: ${{ steps.config.outputs.code_paths }}
+          CODE_MAX_FILES: ${{ steps.config.outputs.code_max_files }}
         run: |
           set -euo pipefail
 
@@ -133,32 +173,20 @@ jobs:
           elif [ "${{ github.event_name }}" = "push" ] && [ -n "${{ github.event.before }}" ] && [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]; then
             git diff --name-only "${{ github.event.before }}" "${{ github.sha }}" > changed_files_raw.txt
           else
-            git ls-files > changed_files_raw.txt
+            find $CODE_PATHS -type f 2>/dev/null > changed_files_raw.txt || true
           fi
 
           python3 <<'PYEOF'
           import os
           from pathlib import Path
 
-          max_files = int(os.environ.get("HEXAFLOW_CODE_MAX_FILES", "30"))
+          max_files = int(os.environ.get("CODE_MAX_FILES", "30"))
           allowed_exts = {
-              ".ts", ".tsx", ".js", ".jsx",
-              ".json", ".yml", ".yaml", ".prisma",
-              ".mjs", ".cjs",
+              ext if ext.startswith(".") else f".{ext}"
+              for ext in os.environ.get("CODE_EXTENSIONS", "").split()
           }
-          allowed_names = {
-              "Dockerfile",
-              "package.json",
-              "package-lock.json",
-              "prisma.config.ts",
-              "tsconfig.json",
-              "tsconfig.build.json",
-              "nest-cli.json",
-          }
-          excluded_parts = {
-              ".git", "node_modules", "dist", "build", "coverage",
-              ".next", ".turbo", ".cache",
-          }
+          excluded_parts = {".git", "node_modules", "dist", "build", "coverage", ".next", ".turbo", ".cache"}
+          always_names = {"Dockerfile", "package.json", "package-lock.json", "prisma.config.ts", "tsconfig.json", "tsconfig.build.json", "nest-cli.json"}
 
           selected = []
           for raw in Path("changed_files_raw.txt").read_text(encoding="utf-8").splitlines():
@@ -170,7 +198,7 @@ jobs:
                   continue
               if any(part in excluded_parts for part in p.parts):
                   continue
-              if p.name not in allowed_names and p.suffix.lower() not in allowed_exts:
+              if p.name not in always_names and p.suffix.lower() not in allowed_exts:
                   continue
               selected.append(path)
               if len(selected) >= max_files:
@@ -185,7 +213,6 @@ jobs:
           if [ -s files_to_scan.txt ]; then
             echo "has_files=true" >> "$GITHUB_OUTPUT"
           else
-            echo "No matching code files changed."
             echo "has_files=false" >> "$GITHUB_OUTPUT"
           fi
 
@@ -202,7 +229,7 @@ jobs:
           from pathlib import Path
 
           gate_url = os.environ["GATE_URL"].rstrip("/")
-          project = os.environ.get("GITHUB_REPOSITORY", "materials").split("/")[-1]
+          project = os.environ.get("GITHUB_REPOSITORY", "unknown").split("/")[-1]
           commit = os.environ.get("GITHUB_SHA") or None
           branch = os.environ.get("GITHUB_HEAD_REF") or os.environ.get("GITHUB_REF_NAME") or None
 
@@ -211,9 +238,8 @@ jobs:
               path = raw.strip()
               if not path:
                   continue
-              p = Path(path)
               try:
-                  content = p.read_text(encoding="utf-8", errors="replace")[:50000]
+                  content = Path(path).read_text(encoding="utf-8", errors="replace")[:50000]
               except Exception as exc:
                   print(f"Skipping {path}: {exc}", file=sys.stderr)
                   continue
@@ -221,16 +247,10 @@ jobs:
 
           if not files_payload:
               with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as out:
-                  out.write("code_gate_decision=PASSED\n")
-                  out.write("code_gate_exit=0\n")
+                  out.write("decision=PASSED\nexit_code=0\n")
               sys.exit(0)
 
-          payload = {
-              "project_name": project,
-              "commit_sha": commit,
-              "branch": branch,
-              "files": files_payload,
-          }
+          payload = {"project_name": project, "commit_sha": commit, "branch": branch, "files": files_payload}
           request = urllib.request.Request(
               f"{gate_url}/analyze-code",
               data=json.dumps(payload).encode(),
@@ -244,40 +264,29 @@ jobs:
           except urllib.error.HTTPError as exc:
               body = exc.read().decode()
               print(f"Code gate HTTP error {exc.code}: {body}", file=sys.stderr)
-              with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as out:
-                  out.write("code_gate_decision=ERROR\n")
-                  out.write("code_gate_exit=3\n")
-              sys.exit(0)
+              data = {"decision": "ERROR", "reason": f"HTTP {exc.code}: {body[:300]}", "summary": {}, "vulnerabilities": []}
           except Exception as exc:
               print(f"Code gate connection error: {exc}", file=sys.stderr)
-              with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as out:
-                  out.write("code_gate_decision=ERROR\n")
-                  out.write("code_gate_exit=3\n")
-              sys.exit(0)
+              data = {"decision": "ERROR", "reason": str(exc), "summary": {}, "vulnerabilities": []}
+
+          ai_provider = data.get("ai_provider", "")
+          decision = data.get("decision", "ERROR")
+          if decision != "ERROR" and not str(ai_provider).startswith("code:ollama:"):
+              data["decision"] = "ERROR"
+              data["reason"] = "Code gate did not use Ollama."
+              decision = "ERROR"
 
           Path("code_gate_response.json").write_text(json.dumps(data, indent=2), encoding="utf-8")
-
-          decision = data.get("decision", "ERROR")
           summary = data.get("summary", {})
-          total = data.get("total_vulnerabilities", 0)
-          ai_provider = data.get("ai_provider", "")
           print(f"Code decision : {decision}")
           print(f"AI provider   : {ai_provider}")
-          print(f"Files analyzed: {data.get('files_analyzed', len(files_payload))}")
-          print(f"Findings      : {total} (C:{summary.get('CRITICAL', 0)} H:{summary.get('HIGH', 0)} M:{summary.get('MEDIUM', 0)} L:{summary.get('LOW', 0)})")
+          print(f"Reason        : {data.get('reason', '-')}")
+          print(f"Findings      : {data.get('total_vulnerabilities', 0)} (C:{summary.get('CRITICAL', 0)} H:{summary.get('HIGH', 0)} M:{summary.get('MEDIUM', 0)} L:{summary.get('LOW', 0)})")
 
-          if not str(ai_provider).startswith("code:ollama:"):
-              print("Code gate did not use Ollama.", file=sys.stderr)
-              decision = "ERROR"
-              exit_code = 3
-          else:
-              exit_code = {"PASSED": 0, "BLOCKED": 1, "WARNING": 2}.get(decision, 3)
-
+          exit_code = {"PASSED": 0, "BLOCKED": 1, "WARNING": 2}.get(decision, 3)
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as out:
-              out.write(f"code_gate_decision={decision}\n")
-              out.write(f"code_gate_exit={exit_code}\n")
-
-          sys.exit(0)
+              out.write(f"decision={decision}\n")
+              out.write(f"exit_code={exit_code}\n")
           PYEOF
 
       - name: Save Ollama model cache
@@ -288,55 +297,83 @@ jobs:
           key: ollama-model-${{ env.OLLAMA_MODEL }}-v1
 
       - name: Build materials Docker image
-        run: docker build -t "${{ steps.vars.outputs.image_name }}" .
+        id: image_build
+        shell: bash
+        run: |
+          set +e
+          docker build -t "${{ steps.vars.outputs.image }}" -f "${{ steps.config.outputs.dockerfile }}" .
+          EXIT_CODE=$?
+          set -e
+          echo "exit_code=${EXIT_CODE}" >> "$GITHUB_OUTPUT"
+          exit 0
 
       - name: Install Trivy
+        id: trivy_install
+        shell: bash
+        if: steps.image_build.outputs.exit_code == '0'
         run: |
-          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
-            | sh -s -- -b /usr/local/bin
+          set +e
+          set -o pipefail
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+          EXIT_CODE=$?
+          set -e
+          echo "exit_code=${EXIT_CODE}" >> "$GITHUB_OUTPUT"
+          exit 0
 
       - name: Scan image with Trivy
+        id: trivy_scan
+        shell: bash
+        if: steps.image_build.outputs.exit_code == '0' && steps.trivy_install.outputs.exit_code == '0'
         run: |
-          trivy image \
-            --format json \
-            --output trivy_report.json \
-            --exit-code 0 \
-            "${{ steps.vars.outputs.image_name }}"
-
-          trivy image \
-            --format table \
-            --exit-code 0 \
-            "${{ steps.vars.outputs.image_name }}"
+          set +e
+          trivy image --format json --output trivy_report.json --exit-code 0 "${{ steps.vars.outputs.image }}"
+          SCAN_EXIT=$?
+          trivy image --format table --exit-code 0 "${{ steps.vars.outputs.image }}"
+          TABLE_EXIT=$?
+          set -e
+          if [ "$SCAN_EXIT" = "0" ] && [ "$TABLE_EXIT" = "0" ]; then
+            echo "exit_code=0" >> "$GITHUB_OUTPUT"
+          else
+            echo "exit_code=3" >> "$GITHUB_OUTPUT"
+          fi
+          exit 0
 
       - name: Run HexaFlow security gate
-        id: gate
+        id: image_gate
         shell: bash
+        if: steps.trivy_scan.outputs.exit_code == '0'
         run: |
           set +e
           python3 HexaFlow-AI/pipeline/trivy_to_gate.py \
             --report trivy_report.json \
-            --image "${{ steps.vars.outputs.image_name }}" \
+            --image "${{ steps.vars.outputs.image }}" \
             --gate "$GATE_URL" \
-            --dockerfile ./Dockerfile \
+            --dockerfile "${{ steps.config.outputs.dockerfile }}" \
             | tee hexaflow-gate.log
           GATE_EXIT=${PIPESTATUS[0]}
           set -e
 
           case "$GATE_EXIT" in
-            0) echo "gate_decision=APPROVED" >> "$GITHUB_OUTPUT" ;;
-            2) echo "gate_decision=WARNING" >> "$GITHUB_OUTPUT" ;;
-            1) echo "gate_decision=REJECTED" >> "$GITHUB_OUTPUT" ;;
-            *) echo "gate_decision=ERROR" >> "$GITHUB_OUTPUT" ;;
+            0) echo "decision=APPROVED" >> "$GITHUB_OUTPUT" ;;
+            2) echo "decision=WARNING" >> "$GITHUB_OUTPUT" ;;
+            1) echo "decision=REJECTED" >> "$GITHUB_OUTPUT" ;;
+            *) echo "decision=ERROR" >> "$GITHUB_OUTPUT" ;;
           esac
-          echo "gate_exit=${GATE_EXIT}" >> "$GITHUB_OUTPUT"
+          echo "exit_code=${GATE_EXIT}" >> "$GITHUB_OUTPUT"
+          exit 0
 
       - name: Build PR comment
         if: always()
         env:
-          GATE_DECISION: ${{ steps.gate.outputs.gate_decision }}
-          CODE_GATE_DECISION: ${{ steps.code_gate.outputs.code_gate_decision }}
+          IMAGE_DECISION: ${{ steps.image_gate.outputs.decision }}
+          IMAGE_GATE_EXIT: ${{ steps.image_gate.outputs.exit_code }}
+          BUILD_EXIT: ${{ steps.image_build.outputs.exit_code }}
+          TRIVY_INSTALL_EXIT: ${{ steps.trivy_install.outputs.exit_code }}
+          TRIVY_SCAN_EXIT: ${{ steps.trivy_scan.outputs.exit_code }}
+          CODE_DECISION: ${{ steps.code_gate.outputs.decision }}
+          CODE_EXIT: ${{ steps.code_gate.outputs.exit_code }}
           CODE_FILES_DETECTED: ${{ steps.code_files.outputs.has_files }}
-          IMAGE_NAME: ${{ steps.vars.outputs.image_name }}
+          IMAGE_NAME: ${{ steps.vars.outputs.image }}
         run: |
           python3 <<'PYEOF'
           import datetime
@@ -344,25 +381,39 @@ jobs:
           import os
           from collections import Counter
 
+          image_decision = os.environ.get("IMAGE_DECISION") or "ERROR"
+          code_decision = os.environ.get("CODE_DECISION") or ("SKIPPED" if os.environ.get("CODE_FILES_DETECTED") != "true" else "ERROR")
+          image = os.environ.get("IMAGE_NAME", "-")
+          ts = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+
+          lines = [
+              f"## HexaFlow Security Gate - Image: {image_decision} / Code: {code_decision}",
+              f"_`{image}` - {ts} - AI provider: `ollama:mistral`_",
+              "",
+          ]
+
           counts = Counter()
+          crit_high = []
           try:
-              with open("trivy_report.json", encoding="utf-8") as report:
-                  data = json.load(report)
+              data = json.load(open("trivy_report.json", encoding="utf-8"))
               for result in data.get("Results", []):
                   for vuln in result.get("Vulnerabilities") or []:
-                      counts[vuln.get("Severity", "UNKNOWN").upper()] += 1
+                      sev = vuln.get("Severity", "UNKNOWN").upper()
+                      counts[sev] += 1
+                      if sev in ("CRITICAL", "HIGH"):
+                          crit_high.append({
+                              "id": vuln.get("VulnerabilityID", "-"),
+                              "sev": sev,
+                              "pkg": vuln.get("PkgName", "-"),
+                              "ver": vuln.get("InstalledVersion", "-"),
+                              "fixed": vuln.get("FixedVersion", "-"),
+                              "title": (vuln.get("Title") or "")[:90],
+                          })
           except Exception:
               pass
 
-          decision = os.environ.get("GATE_DECISION", "UNKNOWN")
-          code_decision = os.environ.get("CODE_GATE_DECISION") or ("SKIPPED" if os.environ.get("CODE_FILES_DETECTED") != "true" else "UNKNOWN")
-          image = os.environ.get("IMAGE_NAME", "-")
-          timestamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
-          lines = [
-              f"## HexaFlow Security Gate - Image: {decision} / Code: {code_decision}",
-              f"_Scanned: `{image}` - {timestamp} - AI provider: `ollama:mistral`_",
-              "",
-              "### Image scan",
+          lines += [
+              "### Image analysis",
               "",
               "| Severity | Count |",
               "|----------|-------|",
@@ -373,16 +424,39 @@ jobs:
               f"| Unknown | {counts.get('UNKNOWN', 0)} |",
           ]
 
+          if os.environ.get("BUILD_EXIT") and os.environ.get("BUILD_EXIT") != "0":
+              lines += ["", f"**Conclusion:** Docker image build failed with exit code `{os.environ.get('BUILD_EXIT')}`."]
+          elif os.environ.get("TRIVY_INSTALL_EXIT") and os.environ.get("TRIVY_INSTALL_EXIT") != "0":
+              lines += ["", f"**Conclusion:** Trivy installation failed with exit code `{os.environ.get('TRIVY_INSTALL_EXIT')}`."]
+          elif os.environ.get("TRIVY_SCAN_EXIT") and os.environ.get("TRIVY_SCAN_EXIT") != "0":
+              lines += ["", f"**Conclusion:** Trivy scan failed with exit code `{os.environ.get('TRIVY_SCAN_EXIT')}`."]
+
           try:
-              with open("code_gate_response.json", encoding="utf-8") as response:
-                  code = json.load(response)
+              gate_text = open("hexaflow-gate.log", encoding="utf-8", errors="replace").read()
+              if gate_text.strip():
+                  lines += ["", "**HexaFlow image conclusion:**", "", "```text", gate_text[-3000:].strip(), "```"]
+          except Exception:
+              pass
+
+          if crit_high:
+              lines += [
+                  "",
+                  "**Critical/High image findings:**",
+                  "",
+                  "| CVE | Severity | Package | Installed | Fix | Description |",
+                  "|-----|----------|---------|-----------|-----|-------------|",
+              ]
+              for item in crit_high[:20]:
+                  lines.append(f"| `{item['id']}` | {item['sev']} | `{item['pkg']}` | {item['ver']} | {item['fixed']} | {item['title']} |")
+
+          lines += ["", "### Code analysis"]
+          try:
+              code = json.load(open("code_gate_response.json", encoding="utf-8"))
               summary = code.get("summary", {})
               lines += [
                   "",
-                  "### Code scan",
-                  "",
                   f"**Decision:** {code.get('decision', code_decision)}",
-                  f"**Reason:** {code.get('reason', '-')}",
+                  f"**Conclusion:** {code.get('reason', '-')}",
                   f"**AI provider:** `{code.get('ai_provider', '-')}`",
                   "",
                   "| Severity | Count |",
@@ -392,31 +466,32 @@ jobs:
                   f"| Medium | {summary.get('MEDIUM', 0)} |",
                   f"| Low | {summary.get('LOW', 0)} |",
               ]
-              vulnerabilities = code.get("vulnerabilities", [])
-              critical_high = [item for item in vulnerabilities if item.get("severity") in {"CRITICAL", "HIGH"}]
-              if critical_high:
+              vulns = code.get("vulnerabilities", [])
+              if vulns:
                   lines += [
                       "",
-                      "| Severity | Type | File | Line | CWE |",
-                      "|----------|------|------|------|-----|",
+                      "**Code recommendations:**",
+                      "",
+                      "| Severity | Type | File | Line | Recommendation |",
+                      "|----------|------|------|------|----------------|",
                   ]
-                  for item in critical_high[:20]:
+                  for vuln in vulns[:20]:
                       lines.append(
-                          f"| {item.get('severity', '-')} | {item.get('type', '-')} | "
-                          f"`{item.get('filename', '-')}` | {item.get('line_number') or '?'} | "
-                          f"{item.get('cwe_id') or '-'} |"
+                          f"| {vuln.get('severity', '-')} | {vuln.get('type', '-')} | "
+                          f"`{vuln.get('filename', '-')}` | {vuln.get('line_number') or '?'} | "
+                          f"{vuln.get('suggestion') or vuln.get('description') or '-'} |"
                       )
           except Exception:
-              lines += ["", "### Code scan", "", f"**Decision:** {code_decision}"]
+              lines += ["", f"**Decision:** {code_decision}", "", "No matching changed code files were analyzed." if code_decision == "SKIPPED" else "Code analysis did not produce a response."]
 
-          if decision == "REJECTED":
-              lines += ["", "> Deployment blocked by HexaFlow."]
+          if image_decision == "REJECTED":
+              lines += ["", "> Image deployment blocked by HexaFlow."]
           if code_decision == "BLOCKED":
               lines += ["", "> Merge blocked by HexaFlow code analysis."]
-          if decision == "ERROR" or code_decision == "ERROR":
-              lines += ["", "> HexaFlow or Ollama could not complete the analysis."]
-          with open("hexaflow-pr-comment.md", "w", encoding="utf-8") as comment:
-              comment.write("\n".join(lines))
+          if image_decision == "ERROR" or code_decision == "ERROR":
+              lines += ["", "> HexaFlow could not complete one of the analyses. The gate fails safely."]
+
+          open("hexaflow-pr-comment.md", "w", encoding="utf-8").write("\n".join(lines))
           PYEOF
 
       - name: Post PR comment
@@ -449,21 +524,37 @@ jobs:
       - name: Enforce gate decision
         if: always()
         run: |
-          CODE_EXIT="${{ steps.code_gate.outputs.code_gate_exit }}"
-          if [ -z "$CODE_EXIT" ]; then
-            CODE_EXIT="0"
+          CODE_EXIT="${{ steps.code_gate.outputs.exit_code }}"
+          IMAGE_EXIT="${{ steps.image_gate.outputs.exit_code }}"
+          BUILD_EXIT="${{ steps.image_build.outputs.exit_code }}"
+          TRIVY_INSTALL_EXIT="${{ steps.trivy_install.outputs.exit_code }}"
+          TRIVY_SCAN_EXIT="${{ steps.trivy_scan.outputs.exit_code }}"
+
+          [ -z "$CODE_EXIT" ] && CODE_EXIT="0"
+
+          if [ -n "$BUILD_EXIT" ] && [ "$BUILD_EXIT" != "0" ]; then
+            echo "Docker build failed."
+            exit 1
+          fi
+          if [ -n "$TRIVY_INSTALL_EXIT" ] && [ "$TRIVY_INSTALL_EXIT" != "0" ]; then
+            echo "Trivy installation failed."
+            exit 1
+          fi
+          if [ -n "$TRIVY_SCAN_EXIT" ] && [ "$TRIVY_SCAN_EXIT" != "0" ]; then
+            echo "Trivy scan failed."
+            exit 1
           fi
 
           case "$CODE_EXIT" in
             0) echo "Code gate: PASSED or skipped." ;;
-            2) echo "Code gate: WARNING - continuing with security warnings." ;;
-            1) echo "Code gate: BLOCKED - merge blocked."; exit 1 ;;
-            *) echo "Code gate: ERROR - HexaFlow code analysis failed safely."; exit 1 ;;
+            2) echo "Code gate: WARNING." ;;
+            1) echo "Code gate: BLOCKED."; exit 1 ;;
+            *) echo "Code gate: ERROR."; exit 1 ;;
           esac
 
-          case "${{ steps.gate.outputs.gate_exit }}" in
-            0) echo "APPROVED - continuing." ;;
-            2) echo "WARNING - continuing with security warnings." ;;
-            1) echo "REJECTED - deployment blocked."; exit 1 ;;
-            *) echo "ERROR - HexaFlow failed safely."; exit 1 ;;
+          case "$IMAGE_EXIT" in
+            0) echo "Image gate: APPROVED." ;;
+            2) echo "Image gate: WARNING." ;;
+            1) echo "Image gate: REJECTED."; exit 1 ;;
+            *) echo "Image gate: ERROR."; exit 1 ;;
           esac
