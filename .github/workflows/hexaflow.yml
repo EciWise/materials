@@ -61,7 +61,7 @@ jobs:
           fi
 
           CODE_EXTENSIONS="${_CODE_EXTENSIONS:-.ts .tsx .js .jsx .json .yml .yaml .prisma .mjs .cjs}"
-          CODE_PATHS="${_CODE_PATHS:-src prisma .github Dockerfile package.json package-lock.json prisma.config.ts tsconfig.json tsconfig.build.json nest-cli.json}"
+          CODE_PATHS="${_CODE_PATHS:-src prisma Dockerfile package.json package-lock.json prisma.config.ts tsconfig.json tsconfig.build.json nest-cli.json}"
           CODE_MAX_FILES="${_CODE_MAX_FILES:-30}"
 
           echo "dockerfile=${DOCKERFILE}" >> "$GITHUB_OUTPUT"
@@ -185,7 +185,7 @@ jobs:
               ext if ext.startswith(".") else f".{ext}"
               for ext in os.environ.get("CODE_EXTENSIONS", "").split()
           }
-          excluded_parts = {".git", "node_modules", "dist", "build", "coverage", ".next", ".turbo", ".cache"}
+          excluded_parts = {".git", ".github", "node_modules", "dist", "build", "coverage", ".next", ".turbo", ".cache"}
           always_names = {"Dockerfile", "package.json", "package-lock.json", "prisma.config.ts", "tsconfig.json", "tsconfig.build.json", "nest-cli.json"}
 
           selected = []
@@ -386,9 +386,22 @@ jobs:
           image = os.environ.get("IMAGE_NAME", "-")
           ts = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
 
+          def overall_status(image_status, code_status):
+              if image_status == "ERROR" or code_status == "ERROR":
+                  return "ERROR"
+              if image_status == "REJECTED" or code_status == "BLOCKED":
+                  return "REJECTED"
+              if image_status == "WARNING" or code_status == "WARNING":
+                  return "WARNING"
+              return "APPROVED"
+
+          overall = overall_status(image_decision, code_decision)
+          icon = {"APPROVED": "✅", "WARNING": "⚠️", "REJECTED": "❌", "ERROR": "❌"}.get(overall, "❓")
+
           lines = [
-              f"## HexaFlow Security Gate - Image: {image_decision} / Code: {code_decision}",
-              f"_`{image}` - {ts} - AI provider: `ollama:mistral`_",
+              f"## {icon} HexaFlow Security Gate — {overall}",
+              "",
+              f"_Scanned: `{image}` · {ts} · AI analysis: enabled (`ollama:mistral`)_",
               "",
           ]
 
@@ -413,83 +426,107 @@ jobs:
               pass
 
           lines += [
-              "### Image analysis",
+              "### Vulnerability summary",
               "",
               "| Severity | Count |",
               "|----------|-------|",
-              f"| Critical | **{counts.get('CRITICAL', 0)}** |",
-              f"| High | **{counts.get('HIGH', 0)}** |",
-              f"| Medium | {counts.get('MEDIUM', 0)} |",
-              f"| Low | {counts.get('LOW', 0)} |",
-              f"| Unknown | {counts.get('UNKNOWN', 0)} |",
+              f"| 🔴 Critical | **{counts.get('CRITICAL', 0)}** |",
+              f"| 🟠 High | **{counts.get('HIGH', 0)}** |",
+              f"| 🟡 Medium | {counts.get('MEDIUM', 0)} |",
+              f"| 🔵 Low | {counts.get('LOW', 0)} |",
+              f"| ⚪ Unknown | {counts.get('UNKNOWN', 0)} |",
           ]
 
+          image_analysis = ""
+          image_summary = ""
+          image_recommendations = []
           if os.environ.get("BUILD_EXIT") and os.environ.get("BUILD_EXIT") != "0":
-              lines += ["", f"**Conclusion:** Docker image build failed with exit code `{os.environ.get('BUILD_EXIT')}`."]
+              image_analysis = f"Docker image build failed with exit code {os.environ.get('BUILD_EXIT')}."
+              image_recommendations = ["Fix the Docker build before merging so Trivy and HexaFlow can evaluate the image."]
           elif os.environ.get("TRIVY_INSTALL_EXIT") and os.environ.get("TRIVY_INSTALL_EXIT") != "0":
-              lines += ["", f"**Conclusion:** Trivy installation failed with exit code `{os.environ.get('TRIVY_INSTALL_EXIT')}`."]
+              image_analysis = f"Trivy installation failed with exit code {os.environ.get('TRIVY_INSTALL_EXIT')}."
+              image_recommendations = ["Retry the workflow or pin a known-good Trivy installation method in the next sprint."]
           elif os.environ.get("TRIVY_SCAN_EXIT") and os.environ.get("TRIVY_SCAN_EXIT") != "0":
-              lines += ["", f"**Conclusion:** Trivy scan failed with exit code `{os.environ.get('TRIVY_SCAN_EXIT')}`."]
+              image_analysis = f"Trivy scan failed with exit code {os.environ.get('TRIVY_SCAN_EXIT')}."
+              image_recommendations = ["Review the image scan logs and fix the scanner failure before relying on the gate."]
 
           try:
               gate_text = open("hexaflow-gate.log", encoding="utf-8", errors="replace").read()
-              if gate_text.strip():
-                  lines += ["", "**HexaFlow image conclusion:**", "", "```text", gate_text[-3000:].strip(), "```"]
+              for raw in gate_text.splitlines():
+                  line = raw.strip()
+                  if line.startswith("Reason :"):
+                      image_analysis = line.split(":", 1)[1].strip()
+                  elif line.startswith("Summary:"):
+                      image_summary = line.split(":", 1)[1].strip()
+                  elif line.startswith("[") and "]" in line:
+                      item = line.split("]", 1)[1].strip()
+                      if item:
+                          image_recommendations.append(item)
           except Exception:
               pass
 
           if crit_high:
-              lines += [
-                  "",
-                  "**Critical/High image findings:**",
-                  "",
-                  "| CVE | Severity | Package | Installed | Fix | Description |",
-                  "|-----|----------|---------|-----------|-----|-------------|",
-              ]
-              for item in crit_high[:20]:
-                  lines.append(f"| `{item['id']}` | {item['sev']} | `{item['pkg']}` | {item['ver']} | {item['fixed']} | {item['title']} |")
+              image_recommendations.extend([
+                  "Prioritize Critical and High image vulnerabilities before merge.",
+                  "Update vulnerable packages or move to a patched base image.",
+              ])
+          elif counts.get("MEDIUM", 0) > 0:
+              image_recommendations.append("Schedule remediation for Medium image vulnerabilities in the next sprint.")
+          elif not image_recommendations:
+              image_recommendations.append("Keep dependency and base-image scanning enabled on every PR.")
 
-          lines += ["", "### Code analysis"]
+          code_summary_text = ""
+          code_recommendations = []
+          lines += ["", "### AI Analysis Feedback", "", "_Decision made by the local Ollama model and HexaFlow rule engine._", ""]
+          lines += ["**Image analysis:** " + (image_analysis or f"Image gate finished with decision {image_decision}.")]
+          lines += ["", "**Image recommendations:**"]
+          for i, rec in enumerate(dict.fromkeys(image_recommendations).keys(), 1):
+              lines.append(f"{i}. {rec}")
+
           try:
               code = json.load(open("code_gate_response.json", encoding="utf-8"))
               summary = code.get("summary", {})
+              code_summary_text = (
+                  f"Code gate decision: {code.get('decision', code_decision)}. "
+                  f"Critical: {summary.get('CRITICAL', 0)}, High: {summary.get('HIGH', 0)}, "
+                  f"Medium: {summary.get('MEDIUM', 0)}, Low: {summary.get('LOW', 0)}."
+              )
               lines += [
                   "",
-                  f"**Decision:** {code.get('decision', code_decision)}",
-                  f"**Conclusion:** {code.get('reason', '-')}",
-                  f"**AI provider:** `{code.get('ai_provider', '-')}`",
+                  "**Code analysis:** " + code.get("reason", "-"),
                   "",
-                  "| Severity | Count |",
-                  "|----------|-------|",
-                  f"| Critical | **{summary.get('CRITICAL', 0)}** |",
-                  f"| High | **{summary.get('HIGH', 0)}** |",
-                  f"| Medium | {summary.get('MEDIUM', 0)} |",
-                  f"| Low | {summary.get('LOW', 0)} |",
+                  f"**Code AI provider:** `{code.get('ai_provider', '-')}`",
+                  "",
+                  "**Code recommendations:**",
               ]
               vulns = code.get("vulnerabilities", [])
               if vulns:
-                  lines += [
-                      "",
-                      "**Code recommendations:**",
-                      "",
-                      "| Severity | Type | File | Line | Recommendation |",
-                      "|----------|------|------|------|----------------|",
-                  ]
-                  for vuln in vulns[:20]:
-                      lines.append(
-                          f"| {vuln.get('severity', '-')} | {vuln.get('type', '-')} | "
-                          f"`{vuln.get('filename', '-')}` | {vuln.get('line_number') or '?'} | "
-                          f"{vuln.get('suggestion') or vuln.get('description') or '-'} |"
-                      )
+                  for vuln in vulns:
+                      suggestion = vuln.get("suggestion") or vuln.get("description")
+                      if suggestion:
+                          location = f"{vuln.get('filename', '-')}"
+                          if vuln.get("line_number"):
+                              location += f":{vuln.get('line_number')}"
+                          code_recommendations.append(f"{suggestion} (`{location}`)")
+              if not code_recommendations:
+                  code_recommendations.append("No blocking source-code findings were detected in the changed files.")
+              for i, rec in enumerate(list(dict.fromkeys(code_recommendations).keys())[:5], 1):
+                  lines.append(f"{i}. {rec}")
           except Exception:
-              lines += ["", f"**Decision:** {code_decision}", "", "No matching changed code files were analyzed." if code_decision == "SKIPPED" else "Code analysis did not produce a response."]
+              code_summary_text = "No matching changed code files were analyzed." if code_decision == "SKIPPED" else "Code analysis did not produce a response."
+              lines += ["", "**Code analysis:** " + code_summary_text]
 
           if image_decision == "REJECTED":
-              lines += ["", "> Image deployment blocked by HexaFlow."]
+              image_summary = image_summary or "Image deployment is blocked until Critical/High findings are fixed."
           if code_decision == "BLOCKED":
-              lines += ["", "> Merge blocked by HexaFlow code analysis."]
+              code_summary_text = code_summary_text or "Merge is blocked by source-code findings."
           if image_decision == "ERROR" or code_decision == "ERROR":
-              lines += ["", "> HexaFlow could not complete one of the analyses. The gate fails safely."]
+              image_summary = image_summary or "One of the HexaFlow analyses could not complete. The gate fails safely."
+
+          summary_parts = [part for part in [image_summary, code_summary_text] if part]
+          if summary_parts:
+              lines += ["", "**Summary:**", ""]
+              lines += ["> " + " ".join(summary_parts)]
 
           open("hexaflow-pr-comment.md", "w", encoding="utf-8").write("\n".join(lines))
           PYEOF
