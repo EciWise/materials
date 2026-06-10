@@ -618,11 +618,8 @@ jobs:
           path: |
             trivy_report.json
             hexaflow-gate.log
-            ollama-verification.json
-            changed_files_raw.txt
             files_to_scan.txt
             code_gate_response.json
-            hexaflow-pr-comment.md
           if-no-files-found: warn
           retention-days: 30
 
