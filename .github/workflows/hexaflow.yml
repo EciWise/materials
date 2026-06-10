@@ -475,6 +475,42 @@ jobs:
           elif not image_recommendations:
               image_recommendations.append("Keep dependency and base-image scanning enabled on every PR.")
 
+          critical_count = counts.get("CRITICAL", 0)
+          high_count = counts.get("HIGH", 0)
+          medium_count = counts.get("MEDIUM", 0)
+          low_count = counts.get("LOW", 0)
+          affected_packages = Counter(vuln["pkg"] for vuln in crit_high if vuln.get("pkg") and vuln.get("pkg") != "-")
+          most_affected = ", ".join(f"`{pkg}` ({total})" for pkg, total in affected_packages.most_common(5))
+          if critical_count or high_count:
+              image_analysis = (
+                  f"The image is not ready to merge: Trivy found {critical_count} Critical and {high_count} High "
+                  f"vulnerabilities, which exceeds the HexaFlow release gate. "
+                  "Treat this as a base-image and dependency refresh before adding new application changes."
+              )
+              if most_affected:
+                  image_analysis += f" Most affected packages: {most_affected}."
+              image_recommendations.extend([
+                  "Current PR: update the base image first, then rebuild and rerun the gate before reviewing lower-severity findings.",
+                  "Current PR: patch or pin packages with available fixes for Critical/High CVEs and keep the Dockerfile change minimal.",
+                  "Next sprint: create a recurring dependency-refresh task so base images and OS packages are updated before they accumulate blocking CVEs.",
+                  "Next sprint: add an image hardening checklist covering minimal base images, unused package removal, and explicit package version ownership.",
+                  "Next sprint: track remaining Medium/Low findings in a security backlog instead of letting this PR grow beyond the release blocker.",
+              ])
+          elif medium_count:
+              image_analysis = (
+                  f"The image passed the blocking Critical/High threshold, but still has {medium_count} Medium "
+                  f"and {low_count} Low findings that should be planned before the next release cycle."
+              )
+              image_recommendations.extend([
+                  "Next sprint: group Medium findings by package owner and schedule small dependency upgrade PRs.",
+                  "Next sprint: define an SLA for Medium image vulnerabilities so they do not become release blockers later.",
+              ])
+          elif not image_analysis:
+              image_analysis = (
+                  "The image gate did not find blocking vulnerability pressure. Keep the same scan path on future PRs "
+                  "so dependency drift is caught early."
+              )
+
           code_summary_text = ""
           code_recommendations = []
           lines += ["", "### AI Analysis Feedback", "", "_Decision made by the local Ollama model and HexaFlow rule engine._", ""]
@@ -513,7 +549,16 @@ jobs:
               for i, rec in enumerate(list(dict.fromkeys(code_recommendations).keys())[:5], 1):
                   lines.append(f"{i}. {rec}")
           except Exception:
-              code_summary_text = "No matching changed code files were analyzed." if code_decision == "SKIPPED" else "Code analysis did not produce a response."
+              if code_decision == "SKIPPED":
+                  code_summary_text = (
+                      "No matching changed code files were analyzed, so this run only evaluated container and dependency risk. "
+                      "For the next sprint, keep Dockerfile, package manifests, Prisma config, and source changes inside the configured scan paths "
+                      "so HexaFlow can review code-level security impact too."
+                  )
+              else:
+                  code_summary_text = (
+                      "Code analysis did not produce a response. Treat this as a workflow signal to inspect the code-gate logs before relying on the result."
+                  )
               lines += ["", "**Code analysis:** " + code_summary_text]
 
           if image_decision == "REJECTED":
