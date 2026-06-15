@@ -60,8 +60,8 @@ jobs:
             fi
           fi
 
-          CODE_EXTENSIONS="${_CODE_EXTENSIONS:-.ts .tsx .js .jsx .json .yml .yaml .prisma .mjs .cjs}"
-          CODE_PATHS="${_CODE_PATHS:-src prisma Dockerfile package.json package-lock.json prisma.config.ts tsconfig.json tsconfig.build.json nest-cli.json}"
+          CODE_EXTENSIONS="${_CODE_EXTENSIONS:-.ts .tsx .js .jsx .yml .yaml .prisma .mjs .cjs}"
+          CODE_PATHS="${_CODE_PATHS:-src prisma Dockerfile prisma.config.ts tsconfig.json tsconfig.build.json nest-cli.json}"
           CODE_MAX_FILES="${_CODE_MAX_FILES:-30}"
 
           echo "dockerfile=${DOCKERFILE}" >> "$GITHUB_OUTPUT"
@@ -186,7 +186,25 @@ jobs:
               for ext in os.environ.get("CODE_EXTENSIONS", "").split()
           }
           excluded_parts = {".git", ".github", "node_modules", "dist", "build", "coverage", ".next", ".turbo", ".cache"}
-          always_names = {"Dockerfile", "package.json", "package-lock.json", "prisma.config.ts", "tsconfig.json", "tsconfig.build.json", "nest-cli.json"}
+          excluded_names = {"package.json", "package-lock.json", "npm-shrinkwrap.json", "yarn.lock", "pnpm-lock.yaml"}
+          always_names = {"Dockerfile", "prisma.config.ts", "tsconfig.json", "tsconfig.build.json", "nest-cli.json"}
+          code_paths = [Path(raw) for raw in os.environ.get("CODE_PATHS", "").split() if raw.strip()]
+
+          def in_configured_path(path):
+              if not code_paths:
+                  return True
+              for configured in code_paths:
+                  if configured == path:
+                      return True
+                  if configured.exists() and configured.is_dir():
+                      try:
+                          path.relative_to(configured)
+                          return True
+                      except ValueError:
+                          pass
+                  elif configured.as_posix() and path.as_posix().startswith(configured.as_posix().rstrip("/") + "/"):
+                      return True
+              return False
 
           selected = []
           for raw in Path("changed_files_raw.txt").read_text(encoding="utf-8").splitlines():
@@ -197,6 +215,10 @@ jobs:
               if not p.is_file():
                   continue
               if any(part in excluded_parts for part in p.parts):
+                  continue
+              if p.name in excluded_names:
+                  continue
+              if not in_configured_path(p):
                   continue
               if p.name not in always_names and p.suffix.lower() not in allowed_exts:
                   continue
@@ -490,26 +512,23 @@ jobs:
               payload = {
                   "model": os.environ.get("OLLAMA_MODEL", "mistral"),
                   "stream": False,
-                  "options": {"temperature": 0.2},
+                  "options": {"temperature": 0.1, "num_predict": 450},
                   "prompt": (
                       "You are a DevSecOps reviewer writing a GitHub PR security gate comment. "
-                      "Use the scan facts below to produce practical analysis, not generic scanner instructions. "
+                      "Write concise, practical release guidance from these scan facts. "
                       "Return ONLY GitHub-flavored Markdown for a section titled exactly: "
                       "### Ollama AI Risk Analysis. "
-                      "Include concise subsections for risk interpretation, current PR actions, next sprint backlog, and code analysis. "
-                      "Do not mention that you are an AI. Do not invent package names or CVEs. "
-                      "Do not include a top-level H1/H2. Do not repeat the vulnerability summary table. "
-                      "Make recommendations useful for the current PR and for future sprint planning. "
-                      "If no changed code files were analyzed, explain that the run only evaluated container/dependency risk.\n\n"
+                      "Use short subsections: Risk interpretation, Current PR actions, Next sprint backlog, Code analysis. "
+                      "Do not invent package names or CVEs. Do not repeat the vulnerability table. "
+                      "Keep the whole section under 180 words.\n\n"
                       f"Repository image: {image}\n"
                       f"Gate decision: {overall}\n"
                       f"Image decision: {image_decision}\n"
                       f"Severity counts: Critical={critical_count}, High={high_count}, Medium={medium_count}, Low={low_count}\n"
-                      f"Most affected packages: {json.dumps(top_packages)}\n"
-                      f"Critical/High sample: {json.dumps(critical_high_sample)}\n"
+                      f"Most affected packages: {json.dumps(top_packages[:5])}\n"
+                      f"Critical/High sample: {json.dumps(critical_high_sample[:5])}\n"
                       f"HexaFlow image reason: {image_analysis or '-'}\n"
-                      f"HexaFlow image summary: {image_summary or '-'}\n"
-                      f"HexaFlow recommendations: {json.dumps(image_recommendations[:8])}\n"
+                      f"HexaFlow recommendations: {json.dumps(image_recommendations[:5])}\n"
                       f"Code analysis status: {code_decision}\n"
                       f"Code files detected: {os.environ.get('CODE_FILES_DETECTED')}\n"
                   ),
@@ -520,7 +539,7 @@ jobs:
                   headers={"Content-Type": "application/json"},
                   method="POST",
               )
-              with urllib.request.urlopen(request, timeout=180) as response:
+              with urllib.request.urlopen(request, timeout=360) as response:
                   data = json.loads(response.read())
               generated = str(data.get("response", "")).strip()
               generated = re.sub(r"^```(?:markdown)?\s*", "", generated)
@@ -605,7 +624,7 @@ jobs:
 
       - name: Post PR comment
         if: always() && github.event_name == 'pull_request'
-        uses: marocchino/sticky-pull-request-comment@v2
+        uses: marocchino/sticky-pull-request-comment@773744901bac0e8cbb5a0dc842800d45e9b2b405
         with:
           header: hexaflow-security-gate
           path: hexaflow-pr-comment.md
