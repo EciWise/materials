@@ -43,7 +43,7 @@ npm install
 
 ### 3. Configurar variables de entorno
 ```bash
-cp .env.example .env
+cp .env.template .env
 ```
 
 Editar el archivo `.env` con tus configuraciones:
@@ -52,18 +52,23 @@ Editar el archivo `.env` con tus configuraciones:
 NODE_ENV=development
 PORT=3000
 
-# Database
-DB_CONNECTION_STRING=your-database-connection-string
+# Azure Service Bus
+SERVICE_BUS_CONNECTION_STRING=Endpoint=sb://your-namespace.servicebus.windows.net/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=your-key
 
-# File Upload
-MAX_FILE_SIZE=10485760
-UPLOAD_PATH=./uploads
+# Azure Blob Storage
+BLOB_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=https;AccountName=your-account;AccountKey=your-key;EndpointSuffix=core.windows.net
+BLOB_STORAGE_ACCOUNT_NAME=your-account-name
+
+# Swagger Documentation (true/false)
+SWAGGER_ENABLED=true
 ```
 
 ### 4. Configurar base de datos
 ```bash
 # La configuración de base de datos se definirá posteriormente
 # Editar .env con la cadena de conexión correspondiente
+DATABASE_URL="postgresql://postgres"
+DIRECT_URL="postgresql://postgres"
 ```
 
 ## Ejecución
@@ -131,10 +136,29 @@ docker-compose up -d
 ```
 
 ## Documentación API
-Una vez ejecutada la aplicación, la documentación Swagger estará disponible en:
+La documentación Swagger/OpenAPI está disponible condicionalmente según la variable de entorno `SWAGGER_ENABLED`:
+
+- **Habilitada** (`SWAGGER_ENABLED=true`): Accesible en `http://localhost:3000/api`
+- **Deshabilitada** (`SWAGGER_ENABLED=false`): No se expone el endpoint de documentación
+
+La configuración se controla en `src/main.ts`:
+```typescript
+if (envs.swaggerEnabled) {
+  const config = new DocumentBuilder()
+    .setTitle('Wise Banco Material API')
+    .setDescription('API para el servicio de banco de materiales de Eciwise')
+    .setVersion('1.0')
+    .build();
+
+  const document = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('api', app, document);
+  logger.log('Swagger documentation enabled at /api');
+} else {
+  logger.log('Swagger documentation disabled via SWAGGER_ENABLED=false');
+}
 ```
-http://localhost:3000/api
-```
+
+Por defecto, `SWAGGER_ENABLED=true` (ver `.env.template` y `src/config/env.ts`).
 
 ## Estructura del Proyecto
 ```
@@ -215,7 +239,7 @@ Por el momento, configurar la variable `DB_CONNECTION_STRING` en el archivo `.en
 ## Soporte
 Para soporte técnico o preguntas sobre el proyecto, contactar al equipo de desarrollo.
 
-## 📝 Convenciones de Commits
+## Convenciones de Commits
 
 Este proyecto sigue [Conventional Commits](https://www.conventionalcommits.org/) para mantener un historial claro y consistente.
 
@@ -236,18 +260,14 @@ Este proyecto sigue [Conventional Commits](https://www.conventionalcommits.org/)
 - `chore` - Tareas de mantenimiento
 
 
-## 📄 Licencia
+## Licencia
 
 Este proyecto es privado y pertenece a DOSW2025.
 
 ---
 
-## 👥 Equipo
+## Equipo
 
 **DOSW2025** - Desarrollo de Aplicaciones Web
 
-<<<<<<< HEAD
 ---
-=======
----
->>>>>>> daf8df33dbd73188c4de9974bc029572f6737613
