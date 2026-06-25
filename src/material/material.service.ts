@@ -93,7 +93,6 @@ export class MaterialService {
    */
   async validateMaterial(pdfBuffer: Buffer, materialData: CreateMaterialDto, originalName?: string): Promise<CreateMaterialResponseDto> {
     // Verificar que el usuario existe
-    await this.validateUserExists(materialData.userId);
 
     const correlationId = uuid();
     const filename = materialData.title;
