@@ -8,12 +8,14 @@
   "scripts": {
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
-    "postinstall": "echo '[POSTINSTALL] Generating Prisma Client...' && node node_modules/prisma/build/index.js generate && echo '✅ [POSTINSTALL] Prisma Client generated successfully!'",
-    "start": "echo '[START] Generating Prisma Client...' && node node_modules/prisma/build/index.js generate && echo '🔄 [START] Running Prisma migrations...' && node node_modules/prisma/build/index.js migrate deploy && echo '🚀 [START] Starting application...' && node dist/src/main",
+    "prepare": "husky",
+    "postinstall": "echo '[POSTINSTALL] Generating Prisma Client...' && node node_modules/prisma/build/index.js generate && echo '[POSTINSTALL] Prisma Client generated successfully!'",
+    "start": "echo '[START] Generating Prisma Client...' && node node_modules/prisma/build/index.js generate && echo '[START] Running Prisma migrations...' && node node_modules/prisma/build/index.js migrate deploy && echo '[START] Starting application...' && node dist/src/main",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
+    "lint:check": "eslint \"{src,apps,libs,test}/**/*.ts\" --max-warnings=0",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
@@ -32,6 +34,7 @@
     "@prisma/adapter-pg": "7.0.1",
     "@prisma/client": "7.0.1",
     "@prisma/config": "7.0.1",
+    "@aws-sdk/client-s3": "^3.850.0",
     "amqplib": "^0.10.9",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.3",
@@ -44,6 +47,7 @@
     "uuid": "^13.0.1"
   },
   "devDependencies": {
+    "@types/amqplib": "^0.10.7",
     "@eslint/eslintrc": "^3.2.0",
     "@eslint/js": "^9.18.0",
     "@nestjs/cli": "^11.0.0",
@@ -68,7 +72,8 @@
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
     "typescript": "^5.7.3",
-    "typescript-eslint": "^8.20.0"
+    "typescript-eslint": "^8.20.0",
+    "husky": "^9.1.7"
   },
   "overrides": {
     "@hono/node-server": "1.19.13",

@@ -11,7 +11,8 @@ export class TagPercentageItemDto {
   tag: string;
 
   @ApiProperty({
-    description: 'Porcentaje de uso de este tag en todos los materiales del sistema',
+    description:
+      'Porcentaje de uso de este tag en todos los materiales del sistema',
     example: 25.5,
   })
   porcentaje: number;

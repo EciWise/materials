@@ -22,7 +22,8 @@ export class RateMaterialResponseDto {
   comentario?: string | null;
 
   @ApiProperty({
-    description: 'Promedio de calificaciones del material después de esta operación',
+    description:
+      'Promedio de calificaciones del material después de esta operación',
     example: 4.5,
   })
   calificacionPromedio: number;

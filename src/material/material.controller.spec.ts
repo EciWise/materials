@@ -1,13 +1,17 @@
 jest.mock('../config', () => ({
   envs: {
-    blobStorageConnectionString: 'test-connection-string',
-    blobStorageAccountName: 'test-account',
+    storageProvider: 'azure',
+    messageBusProvider: 'azure',
   },
 }));
 
-jest.mock('../prisma/prisma.service', () => ({
-  PrismaService: jest.fn(),
-}), { virtual: true });
+jest.mock(
+  '../prisma/prisma.service',
+  () => ({
+    PrismaService: jest.fn(),
+  }),
+  { virtual: true },
+);
 
 jest.mock('uuid', () => ({
   v4: jest.fn(() => 'test-uuid'),
@@ -70,7 +74,9 @@ describe('MaterialController', () => {
 
       const result = await controller.getMaterialsByUser('user-123');
 
-      expect(serviceMock.getMaterialsByUserWithStats).toHaveBeenCalledWith('user-123');
+      expect(serviceMock.getMaterialsByUserWithStats).toHaveBeenCalledWith(
+        'user-123',
+      );
       expect(result).toBe(mockResponse);
     });
   });
@@ -160,19 +166,34 @@ describe('MaterialController', () => {
       };
 
       await expect(
-        controller.actualizarMaterialVersion('mat-1', fakeFile as any, { title: 'T', userId: 'u1' }),
+        controller.actualizarMaterialVersion('mat-1', fakeFile as any, {
+          title: 'T',
+          userId: 'u1',
+        }),
       ).rejects.toThrow('Solo se permiten archivos PDF');
     });
 
     it('debería delegar sin archivo', async () => {
-      const body = { title: 'Nuevo título', description: 'Actualizado', userId: 'user-123' };
+      const body = {
+        title: 'Nuevo título',
+        description: 'Actualizado',
+        userId: 'user-123',
+      };
       const mockResult = { id: 'mat-1', title: body.title };
       serviceMock.updateMaterialVersion.mockResolvedValue(mockResult);
 
-      const result = await controller.actualizarMaterialVersion('mat-1', undefined as any, body);
+      const result = await controller.actualizarMaterialVersion(
+        'mat-1',
+        undefined as any,
+        body,
+      );
 
       expect(serviceMock.updateMaterialVersion).toHaveBeenCalledWith(
-        'mat-1', undefined, body.title, body.description, undefined,
+        'mat-1',
+        undefined,
+        body.title,
+        body.description,
+        undefined,
       );
       expect(result).toBe(mockResult);
     });
@@ -184,14 +205,26 @@ describe('MaterialController', () => {
         size: 2048,
         buffer: Buffer.from('%PDF-1.4....'),
       };
-      const body = { title: 'Nuevo título', description: 'Actualizado', userId: 'user-123' };
+      const body = {
+        title: 'Nuevo título',
+        description: 'Actualizado',
+        userId: 'user-123',
+      };
       const mockResult = { id: 'mat-1', title: body.title };
       serviceMock.updateMaterialVersion.mockResolvedValue(mockResult);
 
-      const result = await controller.actualizarMaterialVersion('mat-1', fakeFile as any, body);
+      const result = await controller.actualizarMaterialVersion(
+        'mat-1',
+        fakeFile as any,
+        body,
+      );
 
       expect(serviceMock.updateMaterialVersion).toHaveBeenCalledWith(
-        'mat-1', fakeFile.buffer, body.title, body.description, fakeFile.originalname,
+        'mat-1',
+        fakeFile.buffer,
+        body.title,
+        body.description,
+        fakeFile.originalname,
       );
       expect(result).toBe(mockResult);
     });
@@ -223,13 +256,23 @@ describe('MaterialController', () => {
     it('debería delegar en el servicio', async () => {
       const mockTop = {
         userId: 'user-1',
-        topDownloaded: [{ id: 'm1', nombre: 'Top', descargas: 50, vistos: 10, calificacionPromedio: 4 }],
+        topDownloaded: [
+          {
+            id: 'm1',
+            nombre: 'Top',
+            descargas: 50,
+            vistos: 10,
+            calificacionPromedio: 4,
+          },
+        ],
       };
       serviceMock.getTopDownloadedMaterials.mockResolvedValue(mockTop);
 
       const result = await controller.getTopDownloadedMaterials('user-1');
 
-      expect(serviceMock.getTopDownloadedMaterials).toHaveBeenCalledWith('user-1');
+      expect(serviceMock.getTopDownloadedMaterials).toHaveBeenCalledWith(
+        'user-1',
+      );
       expect(result).toBe(mockTop);
     });
   });
@@ -238,7 +281,15 @@ describe('MaterialController', () => {
     it('debería delegar en el servicio', async () => {
       const mockTop = {
         userId: 'user-1',
-        topViewed: [{ id: 'm1', nombre: 'Top', descargas: 10, vistos: 50, calificacionPromedio: 5 }],
+        topViewed: [
+          {
+            id: 'm1',
+            nombre: 'Top',
+            descargas: 10,
+            vistos: 50,
+            calificacionPromedio: 5,
+          },
+        ],
       };
       serviceMock.getTopViewedMaterials.mockResolvedValue(mockTop);
 
@@ -252,7 +303,14 @@ describe('MaterialController', () => {
   describe('getUserTopMaterials', () => {
     it('debería delegar en el servicio', async () => {
       const mockMaterials = [
-        { id: 'm1', nombre: 'Top', descargas: 50, vistos: 100, calificacionPromedio: 5, tags: ['calculo'] },
+        {
+          id: 'm1',
+          nombre: 'Top',
+          descargas: 50,
+          vistos: 100,
+          calificacionPromedio: 5,
+          tags: ['calculo'],
+        },
       ];
       serviceMock.getUserTopMaterials.mockResolvedValue(mockMaterials);
 
@@ -284,7 +342,10 @@ describe('MaterialController', () => {
     it('debería delegar en el servicio', async () => {
       const mockTags = {
         userId: 'user-1',
-        tags: [{ tag: 'calculo', porcentaje: 60 }, { tag: 'algebra', porcentaje: 40 }],
+        tags: [
+          { tag: 'calculo', porcentaje: 60 },
+          { tag: 'algebra', porcentaje: 40 },
+        ],
       };
       serviceMock.getUserTagsPercentage.mockResolvedValue(mockTags);
 
@@ -330,7 +391,11 @@ describe('MaterialController', () => {
 
       const result = await controller.searchMaterialsByName('calculo', 0, 10);
 
-      expect(serviceMock.searchMaterialsByName).toHaveBeenCalledWith('calculo', 0, 10);
+      expect(serviceMock.searchMaterialsByName).toHaveBeenCalledWith(
+        'calculo',
+        0,
+        10,
+      );
       expect(result).toBe(mockResults);
     });
   });
@@ -342,7 +407,11 @@ describe('MaterialController', () => {
 
       const result = await controller.getMaterialsByDate('desc', 0, 10);
 
-      expect(serviceMock.getMaterialsByDate).toHaveBeenCalledWith('desc', 0, 10);
+      expect(serviceMock.getMaterialsByDate).toHaveBeenCalledWith(
+        'desc',
+        0,
+        10,
+      );
       expect(result).toBe(mockResults);
     });
   });
@@ -376,7 +445,12 @@ describe('MaterialController', () => {
         comentario: 'Excelente',
       });
 
-      expect(serviceMock.rateMaterial).toHaveBeenCalledWith('mat-1', 'user-1', 5, 'Excelente');
+      expect(serviceMock.rateMaterial).toHaveBeenCalledWith(
+        'mat-1',
+        'user-1',
+        5,
+        'Excelente',
+      );
       expect(result).toBe(mockResponse);
     });
   });
@@ -433,7 +507,14 @@ describe('MaterialController', () => {
       const result = await controller.searchMaterials(filters as any);
 
       expect(serviceMock.searchMaterials).toHaveBeenCalledWith(
-        'calculo', 'mate', 'user-1', 'pdf', 3, 4, 1, 10,
+        'calculo',
+        'mate',
+        'user-1',
+        'pdf',
+        3,
+        4,
+        1,
+        10,
       );
       expect(result).toEqual({
         materials: [{ id: 'mat-1' }],
@@ -445,20 +526,33 @@ describe('MaterialController', () => {
     });
 
     it('debería usar valores por defecto para page y size', async () => {
-      serviceMock.searchMaterials.mockResolvedValue({ materials: [], total: 0 });
+      serviceMock.searchMaterials.mockResolvedValue({
+        materials: [],
+        total: 0,
+      });
 
       const filters = {};
       const result = await controller.searchMaterials(filters as any);
 
       expect(serviceMock.searchMaterials).toHaveBeenCalledWith(
-        undefined, undefined, undefined, undefined, undefined, undefined, 1, 10,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        1,
+        10,
       );
       expect(result.page).toBe(1);
       expect(result.size).toBe(10);
     });
 
     it('debería calcular totalPages correctamente', async () => {
-      serviceMock.searchMaterials.mockResolvedValue({ materials: [], total: 25 });
+      serviceMock.searchMaterials.mockResolvedValue({
+        materials: [],
+        total: 25,
+      });
 
       const filters = { page: 1, size: 10 };
       const result = await controller.searchMaterials(filters as any);
@@ -513,7 +607,10 @@ describe('MaterialController', () => {
       await controller.downloadMaterial('mat-1', mockRes as any, mockReq);
 
       expect(serviceMock.downloadMaterial).toHaveBeenCalledWith('mat-1');
-      expect(mockRes.setHeader).toHaveBeenCalledWith('Content-Type', 'application/pdf');
+      expect(mockRes.setHeader).toHaveBeenCalledWith(
+        'Content-Type',
+        'application/pdf',
+      );
       expect(mockRes.setHeader).toHaveBeenCalledWith(
         'Content-Disposition',
         'attachment; filename="material.pdf"',

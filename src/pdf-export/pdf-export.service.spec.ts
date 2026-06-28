@@ -5,9 +5,13 @@ jest.mock('../config', () => ({
   },
 }));
 
-jest.mock('../prisma/prisma.service', () => ({
-  PrismaService: jest.fn(),
-}), { virtual: true });
+jest.mock(
+  '../prisma/prisma.service',
+  () => ({
+    PrismaService: jest.fn(),
+  }),
+  { virtual: true },
+);
 
 jest.mock('@azure/storage-blob', () => ({
   BlobServiceClient: {

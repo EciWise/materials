@@ -1,5 +1,11 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsNotEmpty, MinLength, MaxLength, IsOptional } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  MinLength,
+  MaxLength,
+  IsOptional,
+} from 'class-validator';
 
 /**
  * DTO para crear un nuevo material.
@@ -13,7 +19,9 @@ export class CreateMaterialDto {
   })
   @IsString()
   @IsNotEmpty()
-  @MinLength(3, { message: 'title must be longer than or equal to 3 characters' })
+  @MinLength(3, {
+    message: 'title must be longer than or equal to 3 characters',
+  })
   title: string;
 
   @ApiProperty({
@@ -24,7 +32,9 @@ export class CreateMaterialDto {
   })
   @IsOptional()
   @IsString()
-  @MaxLength(300, { message: 'description must be shorter than or equal to 300 characters' })
+  @MaxLength(300, {
+    message: 'description must be shorter than or equal to 300 characters',
+  })
   description?: string;
 
   @ApiProperty({

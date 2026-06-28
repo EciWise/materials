@@ -1,8 +1,10 @@
 import { Controller, Logger, Get, Param, Res } from '@nestjs/common';
 import type { Response } from 'express';
+import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { PdfExportService } from './pdf-export.service';
 import { MaterialService } from '../material/material.service';
 
+@ApiTags('PDF Export')
 @Controller('pdf-export')
 export class PdfExportController {
   private readonly logger = new Logger(PdfExportController.name);
@@ -13,6 +15,17 @@ export class PdfExportController {
   ) {}
 
   @Get(':id/stats/export')
+  @ApiOperation({
+    summary: 'Exportar estadísticas de un material a PDF',
+    description:
+      'Genera un reporte PDF con las estadísticas del material (vistas, descargas, calificaciones, tags) y lo devuelve como descarga.',
+  })
+  @ApiParam({ name: 'id', description: 'ID del material' })
+  @ApiResponse({
+    status: 200,
+    description: 'PDF generado y enviado como stream.',
+  })
+  @ApiResponse({ status: 404, description: 'Material no encontrado.' })
   async exportMaterialStatsToPDF(
     @Param('id') id: string,
     @Res() res: Response,
@@ -31,7 +44,9 @@ export class PdfExportController {
     );
 
     stream.on('error', (err) => {
-      this.logger.error(`Error generando PDF para ${id}: ${err?.message ?? err}`);
+      this.logger.error(
+        `Error generando PDF para ${id}: ${err?.message ?? err}`,
+      );
       if (!res.headersSent) {
         res.status(500).send('Error generando el PDF');
       } else {
