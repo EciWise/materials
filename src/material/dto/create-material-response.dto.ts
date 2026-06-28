@@ -39,7 +39,8 @@ export class CreateMaterialResponseDto {
 
   @ApiProperty({
     description: 'URL del archivo en Azure Blob Storage',
-    example: 'https://wisestorage.blob.core.windows.net/materials/abc123-file.pdf',
+    example:
+      'https://wisestorage.blob.core.windows.net/materials/abc123-file.pdf',
   })
   fileUrl: string;
 

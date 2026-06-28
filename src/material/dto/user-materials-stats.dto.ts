@@ -11,7 +11,8 @@ export class UserMaterialsStatsDto {
   userId: string;
 
   @ApiProperty({
-    description: 'Promedio de calificaciones de todos los materiales del usuario',
+    description:
+      'Promedio de calificaciones de todos los materiales del usuario',
     example: 4.2,
   })
   calificacionPromedio: number;

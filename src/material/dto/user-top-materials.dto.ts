@@ -18,7 +18,8 @@ export class UserTopMaterialsDto {
   totalMateriales: number;
 
   @ApiProperty({
-    description: 'Materiales del usuario ordenados por popularidad (descargas DESC, luego vistas DESC)',
+    description:
+      'Materiales del usuario ordenados por popularidad (descargas DESC, luego vistas DESC)',
     type: MaterialRankingDto,
     isArray: true,
   })
