@@ -22,6 +22,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { MaterialService } from './material.service';
 import { PrismaService } from '../prisma/prisma.service';
 import {
+  ApiBearerAuth,
   ApiOperation,
   ApiParam,
   ApiResponse,
@@ -59,6 +60,7 @@ import { UserAverageRatingDto } from './dto/user-average-rating.dto';
  * - Obtener materiales de un usuario con estadísticas.
  * - Consultar los materiales más populares del sistema.
  */
+@ApiBearerAuth('access-token')
 @ApiTags('Material')
 @Controller('material')
 export class MaterialController {

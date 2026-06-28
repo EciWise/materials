@@ -17,6 +17,7 @@ interface EnvVars {
   S3_BUCKET_NAME: string;
   RABBITMQ_URL: string;
   SWAGGER_ENABLED: boolean;
+  JWT_SECRET: string;
 }
 
 const envsSchema = joi
@@ -68,6 +69,7 @@ const envsSchema = joi
       otherwise: joi.string().optional().allow(''),
     }),
     SWAGGER_ENABLED: joi.boolean().default(true),
+    JWT_SECRET: joi.string().min(32).required(),
   })
   .unknown(true);
 
@@ -90,4 +92,5 @@ export const envs = {
   s3BucketName: envVars.S3_BUCKET_NAME,
   rabbitmqUrl: envVars.RABBITMQ_URL,
   swaggerEnabled: envVars.SWAGGER_ENABLED,
+  jwtSecret: envVars.JWT_SECRET,
 };

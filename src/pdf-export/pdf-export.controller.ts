@@ -1,9 +1,16 @@
 import { Controller, Logger, Get, Param, Res } from '@nestjs/common';
 import type { Response } from 'express';
-import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiParam,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { PdfExportService } from './pdf-export.service';
 import { MaterialService } from '../material/material.service';
 
+@ApiBearerAuth('access-token')
 @ApiTags('PDF Export')
 @Controller('pdf-export')
 export class PdfExportController {
