@@ -57,6 +57,10 @@ seleccionan mediante variables de entorno sin recompilar.
       .setContact('DOSW2025 / EciWise', '', '')
       .setLicense('Privado', '')
       .addServer(`http://localhost:${envs.port}`, 'Local')
+      .addBearerAuth(
+        { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
+        'access-token',
+      )
       .addTag('Material', 'Gestión de materiales académicos PDF')
       .addTag('PDF Export', 'Exportación de estadísticas a PDF')
       .build();

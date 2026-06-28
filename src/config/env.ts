@@ -19,6 +19,7 @@ interface EnvVars {
   SWAGGER_ENABLED: boolean;
   ALLOWED_ORIGINS: string;
   MAX_FILE_SIZE_MB: number;
+  JWT_SECRET: string;
 }
 
 const envsSchema = joi
@@ -72,6 +73,7 @@ const envsSchema = joi
     SWAGGER_ENABLED: joi.boolean().default(true),
     ALLOWED_ORIGINS: joi.string().optional().default(''),
     MAX_FILE_SIZE_MB: joi.number().min(1).max(100).default(25),
+    JWT_SECRET: joi.string().min(32).required(),
   })
   .unknown(true);
 
@@ -98,4 +100,5 @@ export const envs = {
     ? envVars.ALLOWED_ORIGINS.split(',').map((o) => o.trim())
     : [],
   maxFileSizeMb: envVars.MAX_FILE_SIZE_MB,
+  jwtSecret: envVars.JWT_SECRET,
 };

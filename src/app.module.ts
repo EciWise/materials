@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
-import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { AuthModule } from './auth/auth.module';
+import { JwtAuthGuard } from './auth/jwt.guard';
 import { MaterialModule } from './material/material.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { PdfExportModule } from './pdf-export/pdf-export.module';
@@ -14,6 +16,7 @@ import { PdfExportModule } from './pdf-export/pdf-export.module';
         { name: 'long', ttl: 60000, limit: 60 },
       ],
     }),
+    AuthModule,
     MaterialModule,
     PrismaModule,
     PdfExportModule,
@@ -23,6 +26,10 @@ import { PdfExportModule } from './pdf-export/pdf-export.module';
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: JwtAuthGuard,
     },
   ],
 })
