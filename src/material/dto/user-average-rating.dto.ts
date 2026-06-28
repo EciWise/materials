@@ -11,14 +11,16 @@ export class UserAverageRatingDto {
   userId: string;
 
   @ApiProperty({
-    description: 'Calificación promedio de todos los materiales del usuario (escala 1-5)',
+    description:
+      'Calificación promedio de todos los materiales del usuario (escala 1-5)',
     example: 4.5,
     nullable: true,
   })
   calificacionPromedio: number | null;
 
   @ApiProperty({
-    description: 'Total de calificaciones recibidas en todos los materiales del usuario',
+    description:
+      'Total de calificaciones recibidas en todos los materiales del usuario',
     example: 25,
   })
   totalCalificaciones: number;

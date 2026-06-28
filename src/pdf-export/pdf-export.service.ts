@@ -17,12 +17,27 @@ export class PdfExportService {
   private resolveTemplatePath(): string {
     const candidates = [
       path.join(__dirname, 'templates', 'material-report.hbs'),
-      path.join(process.cwd(), 'src', 'pdf-export', 'templates', 'material-report.hbs'),
-      path.join(process.cwd(), 'dist', 'src', 'pdf-export', 'templates', 'material-report.hbs'),
+      path.join(
+        process.cwd(),
+        'src',
+        'pdf-export',
+        'templates',
+        'material-report.hbs',
+      ),
+      path.join(
+        process.cwd(),
+        'dist',
+        'src',
+        'pdf-export',
+        'templates',
+        'material-report.hbs',
+      ),
     ];
     const found = candidates.find((p) => existsSync(p));
     if (!found) {
-      this.logger.error(`Template 'material-report.hbs' no encontrado. Tried: ${candidates.join(', ')}`);
+      this.logger.error(
+        `Template 'material-report.hbs' no encontrado. Tried: ${candidates.join(', ')}`,
+      );
       throw new Error('Template material-report.hbs no encontrado');
     }
     return found;
@@ -34,7 +49,6 @@ export class PdfExportService {
   async generateMaterialStatsPDF(
     stats: MaterialDto,
   ): Promise<{ stream: PassThrough; filename: string; contentType: string }> {
-
     // Validar que el template existe (se mantiene referencia solicitada)
     const templatePath = this.resolveTemplatePath();
     readFileSync(templatePath, 'utf8');
@@ -52,16 +66,28 @@ export class PdfExportService {
       doc.moveDown(0.3);
     };
 
-    const addKeyValue = (label: string, value: string | number | null | undefined) => {
-      doc.fontSize(11).fillColor('#000000').text(`${label}: `, { continued: true });
+    const addKeyValue = (
+      label: string,
+      value: string | number | null | undefined,
+    ) => {
+      doc
+        .fontSize(11)
+        .fillColor('#000000')
+        .text(`${label}: `, { continued: true });
       doc.fillColor('#333333').text(`${value ?? 'N/D'}`);
     };
 
     // Header
-    doc.fontSize(20).fillColor('#003366').text('Reporte de Material', { align: 'center' });
-    doc.fontSize(12).fillColor('#555555').text('Informe generado automáticamente por ECIWISE+', {
-      align: 'center',
-    });
+    doc
+      .fontSize(20)
+      .fillColor('#003366')
+      .text('Reporte de Material', { align: 'center' });
+    doc
+      .fontSize(12)
+      .fillColor('#555555')
+      .text('Informe generado automáticamente por ECIWISE+', {
+        align: 'center',
+      });
     doc.moveDown();
 
     // Información general
@@ -84,17 +110,22 @@ export class PdfExportService {
     // Etiquetas
     addSectionTitle('Etiquetas');
     if (stats.tags && stats.tags.length > 0) {
-      stats.tags.forEach((tag) => doc.fontSize(11).fillColor('#003366').text(`• ${tag}`));
+      stats.tags.forEach((tag) =>
+        doc.fontSize(11).fillColor('#003366').text(`• ${tag}`),
+      );
     } else {
       doc.fontSize(11).fillColor('#777777').text('No hay etiquetas asociadas');
     }
 
     // Footer
     doc.moveDown();
-    doc.fontSize(10).fillColor('#777777').text(
-      `ECIWISE+ — Plataforma de Aprendizaje Colaborativo — ${new Date().getFullYear()}`,
-      { align: 'center' },
-    );
+    doc
+      .fontSize(10)
+      .fillColor('#777777')
+      .text(
+        `ECIWISE+ — Plataforma de Aprendizaje Colaborativo — ${new Date().getFullYear()}`,
+        { align: 'center' },
+      );
 
     doc.end();
 

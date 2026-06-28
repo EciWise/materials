@@ -1,45 +1,42 @@
-import { IsString, IsOptional, IsBoolean, IsNumber } from 'class-validator';
+import { IsString, IsOptional, IsBoolean } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 
 export class NotificationDto {
+  @IsString()
+  email: string;
 
-    @IsString()
-    email: string;
+  @IsString()
+  @ApiProperty({ example: 'nuevoMaterialSubido', required: true })
+  template!: string;
 
-    @IsString()
-    @ApiProperty({ example: 'nuevoMaterialSubido', required: true })
-    template!: string;
+  @IsOptional()
+  @IsString()
+  name?: string;
 
-    @IsOptional()
-    @IsString()
-    name?: string;
+  @IsString()
+  @ApiProperty({ required: true, example: 'Resumen del correo' })
+  resumen!: string;
 
+  @IsBoolean()
+  @ApiProperty({ required: true, example: true })
+  guardar!: boolean;
 
-    @IsString()
-    @ApiProperty({ required: true, example: 'Resumen del correo' })
-    resumen!: string;
+  @IsOptional()
+  @IsBoolean()
+  @Type(() => Boolean)
+  @ApiProperty({ required: false, example: true })
+  mandarCorreo?: boolean = true;
 
-    @IsBoolean()
-    @ApiProperty({ required: true, example: true })
-    guardar!: boolean;
-    
-    @IsOptional()
-    @IsBoolean()
-    @Type(() => Boolean)
-    @ApiProperty({ required: false, example: true })
-    mandarCorreo?: boolean = true;
+  @IsString()
+  @IsOptional()
+  materia?: string;
 
-    @IsString()
-    @IsOptional()
-    materia?: string;
+  @IsString()
+  @IsOptional()
+  fileName?: string;
 
-    @IsString()
-    @IsOptional()
-    fileName?: string;
-
-    @IsString()
-    @IsOptional()
-    tema?: string;
-
+  @IsString()
+  @IsOptional()
+  tema?: string;
 }

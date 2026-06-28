@@ -1,8 +1,35 @@
-import {Controller,Post,UploadedFile,UseInterceptors,BadRequestException,Body,Logger,Get,Param, Query,UsePipes,ValidationPipe, Res, Req,Put,Delete,DefaultValuePipe, ParseIntPipe} from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  UploadedFile,
+  UseInterceptors,
+  BadRequestException,
+  Body,
+  Logger,
+  Get,
+  Param,
+  Query,
+  UsePipes,
+  ValidationPipe,
+  Res,
+  Req,
+  Put,
+  Delete,
+  DefaultValuePipe,
+  ParseIntPipe,
+} from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { MaterialService } from './material.service';
 import { PrismaService } from '../prisma/prisma.service';
-import {ApiOperation,ApiParam,ApiResponse,ApiTags,ApiConsumes,ApiBody,ApiQuery} from '@nestjs/swagger';
+import {
+  ApiOperation,
+  ApiParam,
+  ApiResponse,
+  ApiTags,
+  ApiConsumes,
+  ApiBody,
+  ApiQuery,
+} from '@nestjs/swagger';
 import type { Response, Request } from 'express';
 import { MaterialDto } from './dto/material.dto';
 import { UserMaterialsResponseDto } from './dto/user-materials-response.dto';
@@ -13,15 +40,16 @@ import { CreateRatingDto } from './dto/create-rating.dto';
 import { RateMaterialResponseDto } from './dto/rate-material-response.dto';
 import { SearchMaterialsDto } from './dto/search-materials.dto';
 import { PaginatedMaterialsDto } from './dto/paginated-materials.dto';
-import { AutocompleteResponseDto } from './dto/autocomplete-response.dto';
 import { GetMaterialRatingsResponseDto } from './dto/get-material-ratings.dto';
 import { MaterialsCountDto } from './dto/materials-count.dto';
 import { UserMaterialsStatsDto } from './dto/user-materials-stats.dto';
-import { TopDownloadedMaterialsDto, TopViewedMaterialsDto } from './dto/top-materials.dto';
+import {
+  TopDownloadedMaterialsDto,
+  TopViewedMaterialsDto,
+} from './dto/top-materials.dto';
 import { UserTagsPercentageDto } from './dto/user-tags-percentage.dto';
 import { GlobalTagsPercentageDto } from './dto/global-tags-percentage.dto';
 import { UserAverageRatingDto } from './dto/user-average-rating.dto';
-import { UserTopMaterialsDto } from './dto/user-top-materials.dto';
 
 /**
  * Controlador para la gestión de materiales (PDF) en el sistema.
@@ -46,9 +74,7 @@ export class MaterialController {
    */
   private validatePdfFile(file: any): void {
     if (!file) {
-      throw new BadRequestException(
-        'Archivo PDF requerido en el campo "file"',
-      );
+      throw new BadRequestException('Archivo PDF requerido en el campo "file"');
     }
 
     if (file.mimetype !== 'application/pdf') {
@@ -96,7 +122,8 @@ export class MaterialController {
         },
         description: {
           type: 'string',
-          description: 'Descripcion opcional del material (maximo 300 caracteres).',
+          description:
+            'Descripcion opcional del material (maximo 300 caracteres).',
           example: 'Material de estudio para primer parcial',
           maxLength: 300,
           nullable: true,
@@ -123,18 +150,15 @@ export class MaterialController {
   })
   @ApiResponse({
     status: 400,
-    description:
-      'Validacion fallida. Campos invalidos o archivo no es PDF.',
+    description: 'Validacion fallida. Campos invalidos o archivo no es PDF.',
   })
   @ApiResponse({
     status: 409,
-    description:
-      'Material ya existe con el mismo contenido.',
+    description: 'Material ya existe con el mismo contenido.',
   })
   @ApiResponse({
     status: 422,
-    description:
-      'PDF fallo la validacion automatizada de IA.',
+    description: 'PDF fallo la validacion automatizada de IA.',
   })
   async subirNuevoMaterial(
     @UploadedFile() file: any,
@@ -142,7 +166,9 @@ export class MaterialController {
   ): Promise<CreateMaterialResponseDto> {
     this.validatePdfFile(file);
 
-    this.logger.log(`Archivo '${file.originalname}' de tamaño ${file.size} bytes para el usuario ${body.userId}`,);
+    this.logger.log(
+      `Archivo '${file.originalname}' de tamaño ${file.size} bytes para el usuario ${body.userId}`,
+    );
 
     // Pasar al servicio el buffer del archivo y metadata validada
     const result = await this.materialService.validateMaterial(
@@ -310,7 +336,8 @@ export class MaterialController {
   })
   @ApiResponse({
     status: 200,
-    description: 'Array de todos los materiales del usuario ordenados por popularidad.',
+    description:
+      'Array de todos los materiales del usuario ordenados por popularidad.',
     type: 'array',
     isArray: true,
   })
@@ -318,9 +345,7 @@ export class MaterialController {
     status: 404,
     description: 'El usuario no existe.',
   })
-  async getUserTopMaterials(
-    @Param('userId') userId: string,
-  ): Promise<any[]> {
+  async getUserTopMaterials(@Param('userId') userId: string): Promise<any[]> {
     return this.materialService.getUserTopMaterials(userId);
   }
 
@@ -433,9 +458,8 @@ export class MaterialController {
     isArray: true,
   })
   @ApiResponse({
-  status: 400,
-  description:
-    'Parámetro `limit` inválido.',
+    status: 400,
+    description: 'Parámetro `limit` inválido.',
   })
   @ApiResponse({
     status: 500,
@@ -479,7 +503,8 @@ export class MaterialController {
   @Get('search')
   @ApiOperation({
     summary: 'Buscar materiales por nombre',
-    description: 'Busca materiales cuyo nombre contenga el término especificado (búsqueda parcial, insensible a mayúsculas/minúsculas).',
+    description:
+      'Busca materiales cuyo nombre contenga el término especificado (búsqueda parcial, insensible a mayúsculas/minúsculas).',
   })
   @ApiQuery({
     name: 'nombre',
@@ -535,7 +560,8 @@ export class MaterialController {
     name: 'order',
     required: false,
     enum: ['asc', 'desc'],
-    description: 'Orden de la fecha: "asc" (más antiguos primero) o "desc" (más recientes primero, por defecto)',
+    description:
+      'Orden de la fecha: "asc" (más antiguos primero) o "desc" (más recientes primero, por defecto)',
     example: 'desc',
   })
   @ApiQuery({
@@ -595,7 +621,8 @@ export class MaterialController {
   })
   @ApiResponse({
     status: 200,
-    description: 'Listado de todos los materiales ordenados por fecha de creación (más recientes primero).',
+    description:
+      'Listado de todos los materiales ordenados por fecha de creación (más recientes primero).',
     type: MaterialDto,
     isArray: true,
   })
@@ -615,8 +642,8 @@ export class MaterialController {
    *
    * Recibe:
    * - rating (1-5)
-   * - comentario 
-   * - userId 
+   * - comentario
+   * - userId
    *
    */
   @Post(':id/ratings')
@@ -638,14 +665,12 @@ export class MaterialController {
     type: RateMaterialResponseDto,
   })
   @ApiResponse({
-  status: 400,
-  description:
-    'Datos inválidos.',
+    status: 400,
+    description: 'Datos inválidos.',
   })
   @ApiResponse({
     status: 404,
-    description:
-      'Material o usuario no encontrado.',
+    description: 'Material o usuario no encontrado.',
   })
   @ApiResponse({
     status: 500,
@@ -719,7 +744,8 @@ export class MaterialController {
   })
   @ApiResponse({
     status: 200,
-    description: 'Listado de calificaciones del material ordenadas por fecha descendente.',
+    description:
+      'Listado de calificaciones del material ordenadas por fecha descendente.',
     type: 'array',
     isArray: true,
   })
@@ -744,10 +770,13 @@ export class MaterialController {
   })
   @ApiResponse({
     status: 200,
-    description: 'Listado paginado de materiales que coinciden con los filtros.',
+    description:
+      'Listado paginado de materiales que coinciden con los filtros.',
     type: PaginatedMaterialsDto,
   })
-  async searchMaterials(@Query() filters: SearchMaterialsDto): Promise<PaginatedMaterialsDto> {
+  async searchMaterials(
+    @Query() filters: SearchMaterialsDto,
+  ): Promise<PaginatedMaterialsDto> {
     const { materials, total } = await this.materialService.searchMaterials(
       filters.palabraClave,
       filters.materia,
@@ -829,7 +858,8 @@ export class MaterialController {
   })
   @ApiOperation({
     summary: 'Incrementar vistas de material',
-    description: 'Incrementa en 1 el contador de vistas del material especificado.',
+    description:
+      'Incrementa en 1 el contador de vistas del material especificado.',
   })
   @ApiParam({
     name: 'id',
@@ -854,20 +884,30 @@ export class MaterialController {
     status: 400,
     description: 'Material no existe o parámetros inválidos.',
   })
-  async downloadMaterial(@Param('id') materialId: string, @Res() res: Response, @Req() req: Request) {
+  async downloadMaterial(
+    @Param('id') materialId: string,
+    @Res() res: Response,
+    @Req() _req: Request,
+  ) {
     this.logger.log(`Solicitud de descarga del material ${materialId}`);
-    
+
     // Solicitar stream y metadatos al servicio
-    const { stream, contentType, filename } = await this.materialService.downloadMaterial(materialId);
+    const { stream, contentType, filename } =
+      await this.materialService.downloadMaterial(materialId);
 
     // Preparar cabeceras y pipear el stream al cliente
     res.setHeader('Content-Type', contentType);
     // Forzar descarga con nombre de archivo
-    res.setHeader('Content-Disposition', `attachment; filename="${filename.replace(/"/g, '')}"`);
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${filename.replace(/"/g, '')}"`,
+    );
 
     // Manejar errores en el stream
     stream.on('error', (err) => {
-      this.logger.error(`Error streaming file ${materialId}: ${err?.message ?? err}`);
+      this.logger.error(
+        `Error streaming file ${materialId}: ${err?.message ?? err}`,
+      );
       if (!res.headersSent) {
         res.status(500).send('Error descargando el archivo');
       } else {
@@ -879,140 +919,142 @@ export class MaterialController {
   }
 
   /**
-  * Autocompletado de materiales.
-  *
-  * Busca coincidencias en título, descripción y autor,
-  * retornando un máximo de 5 sugerencias ordenadas por relevancia.
-  */
+   * Autocompletado de materiales.
+   *
+   * Busca coincidencias en título, descripción y autor,
+   * retornando un máximo de 5 sugerencias ordenadas por relevancia.
+   */
 
   /**
- * Endpoint para actualizar la versión de un material existente.
- * - Reemplaza el archivo PDF en Blob Storage.
- * - Actualiza título y descripción del material.
- */
-@Put(':id')
-@UseInterceptors(FileInterceptor('file'))
-@UsePipes(new ValidationPipe({ transform: true }))
-@ApiOperation({
-  summary: 'Actualizar versión de un material',
-  description:
-    'Reemplaza el archivo PDF y actualiza el título y descripción de un material existente. ' +
-    'El archivo debe enviarse en el campo `file` (multipart/form-data).',
-})
-@ApiConsumes('multipart/form-data')
-@ApiParam({
-  name: 'id',
-  description: 'ID del material a actualizar',
-  example: 'abc123-def456',
-})
-@ApiBody({
-  description:
-    'Datos para actualizar el material. Incluye título, descripción y opcionalmente el archivo PDF.',
-  schema: {
-    type: 'object',
-    properties: {
-      file: {
-        type: 'string',
-        format: 'binary',
-        description: 'Nuevo archivo PDF a subir (opcional) (campo `file`).',
+   * Endpoint para actualizar la versión de un material existente.
+   * - Reemplaza el archivo PDF en Blob Storage.
+   * - Actualiza título y descripción del material.
+   */
+  @Put(':id')
+  @UseInterceptors(FileInterceptor('file'))
+  @UsePipes(new ValidationPipe({ transform: true }))
+  @ApiOperation({
+    summary: 'Actualizar versión de un material',
+    description:
+      'Reemplaza el archivo PDF y actualiza el título y descripción de un material existente. ' +
+      'El archivo debe enviarse en el campo `file` (multipart/form-data).',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiParam({
+    name: 'id',
+    description: 'ID del material a actualizar',
+    example: 'abc123-def456',
+  })
+  @ApiBody({
+    description:
+      'Datos para actualizar el material. Incluye título, descripción y opcionalmente el archivo PDF.',
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+          description: 'Nuevo archivo PDF a subir (opcional) (campo `file`).',
+        },
+        title: {
+          type: 'string',
+          description: 'Nuevo título del material (mínimo 3 caracteres).',
+          example: 'Introducción a Cálculo Diferencial - Versión 2',
+          minLength: 3,
+        },
+        description: {
+          type: 'string',
+          description:
+            'Nueva descripción opcional del material (máximo 300 caracteres).',
+          example:
+            'Versión actualizada del material de estudio para primer parcial',
+          maxLength: 300,
+          nullable: true,
+        },
       },
-      title: {
-        type: 'string',
-        description: 'Nuevo título del material (mínimo 3 caracteres).',
-        example: 'Introducción a Cálculo Diferencial - Versión 2',
-        minLength: 3,
-      },
-      description: {
-        type: 'string',
-        description: 'Nueva descripción opcional del material (máximo 300 caracteres).',
-        example: 'Versión actualizada del material de estudio para primer parcial',
-        maxLength: 300,
-        nullable: true,
-      },
+      required: ['title'],
     },
-    required: ['title'],
-  },
-})
-@ApiResponse({
-  status: 200,
-  description: 'Material actualizado correctamente.',
-  type: CreateMaterialResponseDto,
-})
-@ApiResponse({
-  status: 400,
-  description: 'Validación fallida. Campos inválidos o archivo no es PDF.',
-})
-@ApiResponse({
-  status: 404,
-  description: 'Material no encontrado.',
-})
-@ApiResponse({
-  status: 409,
-  description: 'Otro material ya existe con el mismo contenido (hash duplicado).',
-})
-@ApiResponse({
-  status: 422,
-  description: 'PDF falló la validación automatizada de IA.',
-})
-async actualizarMaterialVersion(
-  @Param('id') materialId: string,
-  @UploadedFile() file: any,
-  @Body() body: any,
-): Promise<any> {
-  if (file) {
-    this.validatePdfFile(file);
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Material actualizado correctamente.',
+    type: CreateMaterialResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Validación fallida. Campos inválidos o archivo no es PDF.',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Material no encontrado.',
+  })
+  @ApiResponse({
+    status: 409,
+    description:
+      'Otro material ya existe con el mismo contenido (hash duplicado).',
+  })
+  @ApiResponse({
+    status: 422,
+    description: 'PDF falló la validación automatizada de IA.',
+  })
+  async actualizarMaterialVersion(
+    @Param('id') materialId: string,
+    @UploadedFile() file: any,
+    @Body() body: any,
+  ): Promise<any> {
+    if (file) {
+      this.validatePdfFile(file);
+    }
+
+    const fileInfo = file
+      ? ` con archivo '${file.originalname}'`
+      : ' sin cambiar archivo';
+    this.logger.log(`Actualizando material ${materialId}${fileInfo}`);
+
+    return this.materialService.updateMaterialVersion(
+      materialId,
+      file?.buffer,
+      body.title,
+      body.description,
+      file?.originalname,
+    );
   }
 
-  const fileInfo = file ? ` con archivo '${file.originalname}'` : ' sin cambiar archivo';
-  this.logger.log(
-    `Actualizando material ${materialId}${fileInfo}`,
-  );
-
-  return this.materialService.updateMaterialVersion(
-    materialId,
-    file?.buffer,
-    body.title,
-    body.description,
-    file?.originalname,
-  );
-}
-
-/**
- * Endpoint para eliminar un material por ID.
- *
- * Realiza las siguientes acciones:
- * - Valida que el material existe
- * - Elimina el archivo PDF del almacenamiento (Azure Blob Storage)
- * - Elimina el registro de la base de datos (incluyendo relaciones en cascada)
- */
-@Delete(':id')
-@ApiOperation({
-  summary: 'Eliminar un material por ID',
-  description:
-    'Elimina un material específico por su ID. Esto eliminará el archivo PDF del almacenamiento y todos los registros relacionados (calificaciones, tags, resúmenes).',
-})
-@ApiParam({
-  name: 'id',
-  description: 'ID del material a eliminar',
-  example: 'mat-1',
-})
-@ApiResponse({
-  status: 200,
-  description: 'Material eliminado correctamente.',
-})
-@ApiResponse({
-  status: 404,
-  description: 'Material no encontrado.',
-})
-@ApiResponse({
-  status: 500,
-  description: 'Error interno del servidor.',
-})
-async deleteMaterial(
-  @Param('id') materialId: string,
-): Promise<{ message: string }> {
-  this.logger.log(`Eliminando material ${materialId}`);
-  return this.materialService.deleteMaterial(materialId);
-}
-  
+  /**
+   * Endpoint para eliminar un material por ID.
+   *
+   * Realiza las siguientes acciones:
+   * - Valida que el material existe
+   * - Elimina el archivo PDF del almacenamiento (Azure Blob Storage)
+   * - Elimina el registro de la base de datos (incluyendo relaciones en cascada)
+   */
+  @Delete(':id')
+  @ApiOperation({
+    summary: 'Eliminar un material por ID',
+    description:
+      'Elimina un material específico por su ID. Esto eliminará el archivo PDF del almacenamiento y todos los registros relacionados (calificaciones, tags, resúmenes).',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'ID del material a eliminar',
+    example: 'mat-1',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Material eliminado correctamente.',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Material no encontrado.',
+  })
+  @ApiResponse({
+    status: 500,
+    description: 'Error interno del servidor.',
+  })
+  async deleteMaterial(
+    @Param('id') materialId: string,
+  ): Promise<{ message: string }> {
+    this.logger.log(`Eliminando material ${materialId}`);
+    return this.materialService.deleteMaterial(materialId);
+  }
 }

@@ -11,14 +11,33 @@ export class MaterialDetailDto {
     properties: {
       id: { type: 'string', description: 'Identificador único del material' },
       nombre: { type: 'string', description: 'Nombre del material' },
-      descripcion: { type: 'string', description: 'Descripción del material', nullable: true },
+      descripcion: {
+        type: 'string',
+        description: 'Descripción del material',
+        nullable: true,
+      },
       userId: { type: 'string', description: 'ID del usuario propietario' },
-      userName: { type: 'string', description: 'Nombre del usuario propietario' },
+      userName: {
+        type: 'string',
+        description: 'Nombre del usuario propietario',
+      },
       vistos: { type: 'number', description: 'Número de vistas' },
       descargas: { type: 'number', description: 'Número de descargas' },
-      createdAt: { type: 'string', format: 'date-time', description: 'Fecha de creación' },
-      updatedAt: { type: 'string', format: 'date-time', description: 'Fecha de actualización' },
-      tags: { type: 'array', items: { type: 'string' }, description: 'Etiquetas asociadas' },
+      createdAt: {
+        type: 'string',
+        format: 'date-time',
+        description: 'Fecha de creación',
+      },
+      updatedAt: {
+        type: 'string',
+        format: 'date-time',
+        description: 'Fecha de actualización',
+      },
+      tags: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'Etiquetas asociadas',
+      },
     },
   })
   metadata: {

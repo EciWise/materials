@@ -4,7 +4,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { PdfExportModule } from './pdf-export/pdf-export.module';
 
 @Module({
-  imports: [MaterialModule,PrismaModule,PdfExportModule],
+  imports: [MaterialModule, PrismaModule, PdfExportModule],
   controllers: [],
   providers: [],
 })
