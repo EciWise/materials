@@ -5,9 +5,13 @@ jest.mock('../config', () => ({
   },
 }));
 
-jest.mock('../prisma/prisma.service', () => ({
-  PrismaService: jest.fn(),
-}), { virtual: true });
+jest.mock(
+  '../prisma/prisma.service',
+  () => ({
+    PrismaService: jest.fn(),
+  }),
+  { virtual: true },
+);
 
 jest.mock('@azure/storage-blob', () => ({
   BlobServiceClient: {
@@ -78,9 +82,14 @@ describe('PdfExportController', () => {
 
       await controller.exportMaterialStatsToPDF('mat-1', mockRes as any);
 
-      expect(materialServiceMock.getMaterialStats).toHaveBeenCalledWith('mat-1');
+      expect(materialServiceMock.getMaterialStats).toHaveBeenCalledWith(
+        'mat-1',
+      );
       expect(pdfExportServiceMock.generateMaterialStatsPDF).toHaveBeenCalled();
-      expect(mockRes.setHeader).toHaveBeenCalledWith('Content-Type', 'application/pdf');
+      expect(mockRes.setHeader).toHaveBeenCalledWith(
+        'Content-Type',
+        'application/pdf',
+      );
       expect(mockRes.setHeader).toHaveBeenCalledWith(
         'Content-Disposition',
         'attachment; filename="material-stats-mat-1.pdf"',
