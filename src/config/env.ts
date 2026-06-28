@@ -6,6 +6,7 @@ interface EnvVars {
   SERVICE_BUS_CONNECTION_STRING: string;
   BLOB_STORAGE_CONNECTION_STRING: string;
   BLOB_STORAGE_ACCOUNT_NAME: string;
+  SWAGGER_ENABLED: boolean;
 }
 const envsSchema = joi
   .object({
@@ -13,6 +14,7 @@ const envsSchema = joi
     SERVICE_BUS_CONNECTION_STRING: joi.string().required(),
     BLOB_STORAGE_CONNECTION_STRING: joi.string().required(),
     BLOB_STORAGE_ACCOUNT_NAME: joi.string().required(),
+    SWAGGER_ENABLED: joi.boolean().default(true),
   })
   .unknown(true);
 const result = envsSchema.validate(process.env);
@@ -26,4 +28,5 @@ export const envs = {
   serviceBusConnectionString: envVars.SERVICE_BUS_CONNECTION_STRING,
   blobStorageConnectionString: envVars.BLOB_STORAGE_CONNECTION_STRING,
   blobStorageAccountName: envVars.BLOB_STORAGE_ACCOUNT_NAME,
+  swaggerEnabled: envVars.SWAGGER_ENABLED,
 };
