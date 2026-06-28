@@ -22,6 +22,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { MaterialService } from './material.service';
 import { PrismaService } from '../prisma/prisma.service';
 import {
+  ApiBearerAuth,
   ApiOperation,
   ApiParam,
   ApiResponse,
@@ -31,6 +32,7 @@ import {
   ApiQuery,
 } from '@nestjs/swagger';
 import type { Response, Request } from 'express';
+import { envs } from '../config';
 import { MaterialDto } from './dto/material.dto';
 import { UserMaterialsResponseDto } from './dto/user-materials-response.dto';
 import { CreateMaterialDto } from './dto/createMaterial.dto';
@@ -59,6 +61,7 @@ import { UserAverageRatingDto } from './dto/user-average-rating.dto';
  * - Obtener materiales de un usuario con estadísticas.
  * - Consultar los materiales más populares del sistema.
  */
+@ApiBearerAuth('access-token')
 @ApiTags('Material')
 @Controller('material')
 export class MaterialController {
@@ -80,6 +83,23 @@ export class MaterialController {
     if (file.mimetype !== 'application/pdf') {
       throw new BadRequestException('Solo se permiten archivos PDF');
     }
+
+    // Validate PDF magic bytes (%PDF-) to prevent MIME spoofing
+    const PDF_MAGIC = Buffer.from([0x25, 0x50, 0x44, 0x46, 0x2d]);
+    if (
+      !file.buffer ||
+      file.buffer.length < 5 ||
+      !file.buffer.slice(0, 5).equals(PDF_MAGIC)
+    ) {
+      throw new BadRequestException('El archivo no es un PDF válido');
+    }
+
+    const maxBytes = envs.maxFileSizeMb * 1024 * 1024;
+    if (file.size > maxBytes) {
+      throw new BadRequestException(
+        `El archivo supera el tamaño máximo permitido de ${envs.maxFileSizeMb} MB`,
+      );
+    }
   }
 
   /**
@@ -95,7 +115,15 @@ export class MaterialController {
    * - userId: obligatorio y debe existir en la tabla User
    */
   @Post()
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: {
+        fileSize: envs.maxFileSizeMb * 1024 * 1024,
+        fields: 10,
+        fieldSize: 1024 * 1024,
+      },
+    }),
+  )
   @UsePipes(new ValidationPipe({ transform: true }))
   @ApiOperation({
     summary: 'Subir un nuevo material PDF',

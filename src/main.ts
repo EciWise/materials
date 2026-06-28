@@ -4,19 +4,29 @@ import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ValidationPipe } from '@nestjs/common/pipes/validation.pipe';
 import { envs } from './config';
 import { Logger } from '@nestjs/common';
+import helmet from 'helmet';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
   const app = await NestFactory.create(AppModule);
 
+  app.use(helmet());
+
+  const corsOrigin =
+    envs.allowedOrigins.length > 0
+      ? envs.allowedOrigins
+      : false;
+
+  app.enableCors({
+    origin: corsOrigin,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true,
+  });
+
   app.useGlobalPipes(
     new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }),
   );
-
-  app.enableCors({
-    origin: true,
-    credentials: true,
-  });
 
   if (envs.swaggerEnabled) {
     const config = new DocumentBuilder()
@@ -47,6 +57,10 @@ seleccionan mediante variables de entorno sin recompilar.
       .setContact('DOSW2025 / EciWise', '', '')
       .setLicense('Privado', '')
       .addServer(`http://localhost:${envs.port}`, 'Local')
+      .addBearerAuth(
+        { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
+        'access-token',
+      )
       .addTag('Material', 'Gestión de materiales académicos PDF')
       .addTag('PDF Export', 'Exportación de estadísticas a PDF')
       .build();
