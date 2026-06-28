@@ -42,7 +42,10 @@ export class AzureServiceBusAdapter extends BaseBusService {
     const receiver = this.client.createReceiver(queue);
     receiver.subscribe({
       processMessage: async (message) => {
-        await onMessage(message.body as T, message.correlationId);
+        await onMessage(
+          message.body as T,
+          message.correlationId as string | undefined,
+        );
       },
       processError: async (args) => {
         await onError(args.error);

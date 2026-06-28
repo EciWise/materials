@@ -12,7 +12,7 @@ export class RabbitMQAdapter
   extends BaseBusService
   implements OnModuleInit, OnModuleDestroy
 {
-  private connection: amqplib.Connection | null = null;
+  private connection: amqplib.ChannelModel | null = null;
   private channel: amqplib.Channel | null = null;
 
   constructor(private readonly url: string) {

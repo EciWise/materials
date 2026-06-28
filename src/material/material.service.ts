@@ -11,11 +11,11 @@ import { createHash } from 'node:crypto';
 import * as path from 'path';
 import { v4 as uuid } from 'uuid';
 import { PrismaService } from '../prisma/prisma.service';
-import { STORAGE_PORT, StoragePort } from '../common/ports/storage.port';
+import { STORAGE_PORT, type StoragePort } from '../common/ports/storage.port';
 import {
   MESSAGE_BUS_PORT,
-  MessageBusPort,
-  SendOptions,
+  type MessageBusPort,
+  type SendOptions,
 } from '../common/ports/message-bus.port';
 import { RespuestaIADto } from './dto/respuestIA.dto';
 import { NotificationDto } from 'src/material/dto/notificacion.dto';
