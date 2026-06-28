@@ -6,13 +6,17 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import type { Request } from 'express';
+import { PrismaService } from '../prisma/prisma.service';
 import type { JwtPayload } from './jwt-payload.interface';
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
-  constructor(private readonly jwtService: JwtService) {}
+  constructor(
+    private readonly jwtService: JwtService,
+    private readonly prisma: PrismaService,
+  ) {}
 
-  canActivate(context: ExecutionContext): boolean {
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<Request>();
     const token = this.extractBearerToken(request);
 
@@ -20,13 +24,26 @@ export class JwtAuthGuard implements CanActivate {
       throw new UnauthorizedException('Token de autorización requerido');
     }
 
+    let payload: JwtPayload;
     try {
-      const payload = this.jwtService.verify<JwtPayload>(token);
-      (request as Request & { user: JwtPayload }).user = payload;
+      payload = this.jwtService.verify<JwtPayload>(token);
     } catch {
       throw new UnauthorizedException('Token inválido o expirado');
     }
 
+    await this.prisma.usuarios.upsert({
+      where: { id: payload.sub },
+      create: {
+        id: payload.sub,
+        email: payload.email,
+        nombre: payload.nombre,
+        apellido: payload.apellido,
+        updated_at: new Date(),
+      },
+      update: {},
+    });
+
+    (request as Request & { user: JwtPayload }).user = payload;
     return true;
   }
 
