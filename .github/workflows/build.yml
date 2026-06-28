@@ -22,22 +22,21 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --ignore-scripts && DATABASE_URL="postgresql://user:pass@localhost:5432/db" node node_modules/prisma/build/index.js generate
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL || 'postgresql://user:pass@localhost:5432/db?schema=public' }}
-          DIRECT_URL: ${{ secrets.DIRECT_URL || 'postgresql://user:pass@localhost:5432/db?schema=public' }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL || 'postgresql://user:pass@localhost:5432/db' }}
 
       - name: Run tests with coverage
         run: npm run test:cov
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL || 'postgresql://user:pass@localhost:5432/db?schema=public' }}
-          DIRECT_URL: ${{ secrets.DIRECT_URL || 'postgresql://user:pass@localhost:5432/db?schema=public' }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL || 'postgresql://user:pass@localhost:5432/db' }}
           PORT: 3000
+          STORAGE_PROVIDER: azure
+          MESSAGE_BUS_PROVIDER: azure
           SERVICE_BUS_CONNECTION_STRING: ${{ secrets.SERVICE_BUS_CONNECTION_STRING || 'Endpoint=sb://fake.servicebus.windows.net/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=fakekey=' }}
           BLOB_STORAGE_CONNECTION_STRING: ${{ secrets.BLOB_STORAGE_CONNECTION_STRING || 'DefaultEndpointsProtocol=https;AccountName=fakeaccount;AccountKey=ZmFrZWtleWZha2VrZXlmYWtla2V5ZmFrZWtleWZha2U=;EndpointSuffix=core.windows.net' }}
           BLOB_STORAGE_ACCOUNT_NAME: ${{ secrets.BLOB_STORAGE_ACCOUNT_NAME || 'fakeaccount' }}
-          STORAGE_PROVIDER: azure
-          MESSAGE_BUS_PROVIDER: azure
+          JWT_SECRET: ${{ secrets.JWT_SECRET || 'ci-test-secret-not-for-production-use-32' }}
 
       - name: SonarQube Scan
         uses: SonarSource/sonarqube-scan-action@v6
