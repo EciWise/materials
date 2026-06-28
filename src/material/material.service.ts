@@ -93,7 +93,6 @@ export class MaterialService {
    */
   async validateMaterial(pdfBuffer: Buffer, materialData: CreateMaterialDto, originalName?: string): Promise<CreateMaterialResponseDto> {
     // Verificar que el usuario existe
-    await this.validateUserExists(materialData.userId);
 
     const correlationId = uuid();
     const filename = materialData.title;
@@ -461,12 +460,7 @@ export class MaterialService {
    */
   async getUserAverageRating(userId: string): Promise<any> {
     // Validar que el usuario existe
-    const userExists = await this.prisma.usuarios.findUnique({
-      where: { id: userId },
-    });
-    if (!userExists) {
-      throw new NotFoundException(`El usuario ${userId} no existe`);
-    }
+    await this.validateUserExists(userId);
 
     // Obtener todos los materiales del usuario con sus calificaciones
     const materiales = await this.prisma.materiales.findMany({
@@ -527,12 +521,7 @@ export class MaterialService {
    */
   async getUserMaterialsStats(userId: string): Promise<UserMaterialsStatsDto> {
     // Validar que el usuario existe
-    const userExists = await this.prisma.usuarios.findUnique({
-      where: { id: userId },
-    });
-    if (!userExists) {
-      throw new NotFoundException(`El usuario ${userId} no existe`);
-    }
+    await this.validateUserExists(userId);
 
     // Obtener todos los materiales del usuario
     const materiales = await this.prisma.materiales.findMany({
@@ -582,12 +571,7 @@ export class MaterialService {
    */
   async getTopDownloadedMaterials(userId: string): Promise<TopDownloadedMaterialsDto> {
     // Validar que el usuario existe
-    const userExists = await this.prisma.usuarios.findUnique({
-      where: { id: userId },
-    });
-    if (!userExists) {
-      throw new NotFoundException(`El usuario ${userId} no existe`);
-    }
+    await this.validateUserExists(userId);
 
     // Obtener top 3 materiales más descargados del usuario
     const materiales = await this.prisma.materiales.findMany({
@@ -631,12 +615,7 @@ export class MaterialService {
    */
   async getTopViewedMaterials(userId: string): Promise<TopViewedMaterialsDto> {
     // Validar que el usuario existe
-    const userExists = await this.prisma.usuarios.findUnique({
-      where: { id: userId },
-    });
-    if (!userExists) {
-      throw new NotFoundException(`El usuario ${userId} no existe`);
-    }
+    await this.validateUserExists(userId);
 
     // Obtener top 3 materiales más vistos del usuario
     const materiales = await this.prisma.materiales.findMany({
@@ -680,12 +659,7 @@ export class MaterialService {
    */
   async getUserTopMaterials(userId: string): Promise<any[]> {
     // Validar que el usuario existe
-    const userExists = await this.prisma.usuarios.findUnique({
-      where: { id: userId },
-    });
-    if (!userExists) {
-      throw new NotFoundException(`El usuario ${userId} no existe`);
-    }
+    await this.validateUserExists(userId);
 
     // Obtener todos los materiales del usuario ordenados por descargas DESC, luego vistos DESC
     const materiales = await this.prisma.materiales.findMany({
@@ -734,12 +708,7 @@ export class MaterialService {
    */
   async getUserTagsPercentage(userId: string): Promise<UserTagsPercentageDto> {
     // Validar que el usuario existe
-    const userExists = await this.prisma.usuarios.findUnique({
-      where: { id: userId },
-    });
-    if (!userExists) {
-      throw new NotFoundException(`El usuario ${userId} no existe`);
-    }
+    await this.validateUserExists(userId);
 
     // Obtener todos los materiales del usuario con sus tags
     const materiales = await this.prisma.materiales.findMany({

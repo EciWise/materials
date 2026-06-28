@@ -18,15 +18,20 @@ async function bootstrap() {
     credentials: true,
   });
 
-  const config = new DocumentBuilder()
-    .setTitle('Wise Banco Material API')
-    .setDescription('API para el servicio de banco de materiales de Eciwise')
-    .setVersion('1.0')
-    .build();
+  if (envs.swaggerEnabled) {
+    const config = new DocumentBuilder()
+      .setTitle('Wise Banco Material API')
+      .setDescription('API para el servicio de banco de materiales de Eciwise')
+      .setVersion('1.0')
+      .build();
 
-  const document = SwaggerModule.createDocument(app, config);
+    const document = SwaggerModule.createDocument(app, config);
 
-  SwaggerModule.setup('api', app, document);
+    SwaggerModule.setup('api', app, document);
+    logger.log('Swagger documentation enabled at /api');
+  } else {
+    logger.log('Swagger documentation disabled via SWAGGER_ENABLED=false');
+  }
 
   const port = envs.port;
   await app.listen(port);
