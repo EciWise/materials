@@ -6,6 +6,7 @@ import {
   UnprocessableEntityException,
   NotFoundException,
   Inject,
+  OnModuleInit,
 } from '@nestjs/common';
 import { createHash } from 'node:crypto';
 import * as path from 'path';
@@ -37,7 +38,7 @@ import {
 import { UserTagsPercentageDto } from './dto/user-tags-percentage.dto';
 
 @Injectable()
-export class MaterialService {
+export class MaterialService implements OnModuleInit {
   private readonly logger = new Logger(MaterialService.name);
 
   private readonly pendingRequests: Map<string, (msg: RespuestaIADto) => void> =
@@ -47,7 +48,9 @@ export class MaterialService {
     @Inject(STORAGE_PORT) private readonly storage: StoragePort,
     @Inject(MESSAGE_BUS_PORT) private readonly messageBus: MessageBusPort,
     private readonly prisma: PrismaService,
-  ) {
+  ) {}
+
+  onModuleInit(): void {
     this.listenForResponses();
   }
 

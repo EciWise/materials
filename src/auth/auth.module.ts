@@ -11,6 +11,6 @@ import { JwtAuthGuard } from './jwt.guard';
     }),
   ],
   providers: [JwtAuthGuard],
-  exports: [JwtAuthGuard],
+  exports: [JwtAuthGuard, JwtModule],
 })
 export class AuthModule {}
