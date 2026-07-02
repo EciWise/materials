@@ -71,6 +71,7 @@ describe('MaterialService', () => {
 
     messageBusMock = {
       send: jest.fn().mockResolvedValue(undefined),
+      publish: jest.fn().mockResolvedValue(undefined),
       subscribe: jest.fn().mockImplementation((_queue, onMessage, onError) => {
         subscribeHandler = onMessage;
         subscribeErrorHandler = onError;

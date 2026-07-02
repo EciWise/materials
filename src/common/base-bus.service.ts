@@ -19,6 +19,13 @@ export abstract class BaseBusService implements MessageBusPort {
     options?: SendOptions,
   ): Promise<void>;
 
+  abstract publish(
+    exchange: string,
+    routingKey: string,
+    body: unknown,
+    options?: SendOptions,
+  ): Promise<void>;
+
   abstract subscribe<T = unknown>(
     queue: string,
     onMessage: MessageHandler<T>,

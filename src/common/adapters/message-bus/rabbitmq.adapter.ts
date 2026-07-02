@@ -42,6 +42,24 @@ export class RabbitMQAdapter
     });
   }
 
+  async publish(
+    exchange: string,
+    routingKey: string,
+    body: unknown,
+    options?: SendOptions,
+  ): Promise<void> {
+    if (!this.channel) throw new Error('RabbitMQ channel not initialized');
+    this.logSend(`${exchange}/${routingKey}`, options?.correlationId);
+    await this.channel.assertExchange(exchange, 'topic', { durable: true });
+    const content = Buffer.from(JSON.stringify(body));
+    this.channel.publish(exchange, routingKey, content, {
+      persistent: true,
+      correlationId: options?.correlationId,
+      contentType: options?.contentType ?? 'application/json',
+      headers: { subject: options?.subject },
+    });
+  }
+
   subscribe<T = unknown>(
     queue: string,
     onMessage: MessageHandler<T>,

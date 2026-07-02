@@ -33,6 +33,26 @@ export class AzureServiceBusAdapter extends BaseBusService {
     await sender.close();
   }
 
+  async publish(
+    exchange: string,
+    routingKey: string,
+    body: unknown,
+    options?: SendOptions,
+  ): Promise<void> {
+    // En Azure Service Bus el "exchange topic" se modela como un Topic y la
+    // routing key viaja como `subject` para que las suscripciones filtren.
+    this.logSend(`${exchange}/${routingKey}`, options?.correlationId);
+    const sender = this.client.createSender(exchange);
+    const message: ServiceBusMessage = {
+      body,
+      subject: routingKey,
+      ...(options?.correlationId && { correlationId: options.correlationId }),
+      ...(options?.contentType && { contentType: options.contentType }),
+    };
+    await sender.sendMessages(message);
+    await sender.close();
+  }
+
   subscribe<T = unknown>(
     queue: string,
     onMessage: MessageHandler<T>,
