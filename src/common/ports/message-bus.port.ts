@@ -15,6 +15,17 @@ export type ErrorHandler = (error: Error) => Promise<void>;
 
 export interface MessageBusPort {
   send(queue: string, body: unknown, options?: SendOptions): Promise<void>;
+  /**
+   * Publica un evento de dominio en un exchange (topic) con la routing key dada.
+   * Usado para integraciones pub/sub (p.ej. notificar a gamificación), a
+   * diferencia de `send`, que encola punto a punto.
+   */
+  publish(
+    exchange: string,
+    routingKey: string,
+    body: unknown,
+    options?: SendOptions,
+  ): Promise<void>;
   subscribe<T = unknown>(
     queue: string,
     onMessage: MessageHandler<T>,

@@ -37,6 +37,11 @@ import {
 } from './dto/top-materials.dto';
 import { UserTagsPercentageDto } from './dto/user-tags-percentage.dto';
 
+/** Exchange de eventos de dominio que consume gamificación (.NET). */
+const EXCHANGE_EVENTS = 'eciwise.events';
+/** Routing key (== eventType) por material aprobado por la IA. */
+const RK_MATERIAL_APROBADO = 'material.aprobado';
+
 @Injectable()
 export class MaterialService implements OnModuleInit {
   private readonly logger = new Logger(MaterialService.name);
@@ -250,6 +255,7 @@ export class MaterialService implements OnModuleInit {
           filename,
           'nuevoMaterialSubido',
         );
+        await this.emitirMaterialAprobado(materialData.userId, correlationId);
         return {
           id: correlationId,
           title: materialData.title,
@@ -361,6 +367,31 @@ export class MaterialService implements OnModuleInit {
       mandarCorreo: true,
     };
     await this.messageBus.send('mail.envio.individual', cuerpo);
+  }
+
+  /**
+   * Publica `material.aprobado` al exchange de eventos de dominio para que
+   * gamificación otorgue puntos al autor del material. No es crítico para el
+   * flujo de subida: si falla, se registra y se continúa.
+   */
+  private async emitirMaterialAprobado(
+    userId: string,
+    materialId: string,
+  ): Promise<void> {
+    try {
+      await this.messageBus.publish(EXCHANGE_EVENTS, RK_MATERIAL_APROBADO, {
+        eventId: uuid(),
+        eventType: RK_MATERIAL_APROBADO,
+        occurredOn: new Date().toISOString(),
+        userId,
+        materialId,
+      });
+    } catch (err) {
+      this.logger.error(
+        `No se pudo publicar ${RK_MATERIAL_APROBADO} para userId=${userId}:`,
+        err as Error,
+      );
+    }
   }
 
   async getMaterialsByUserWithStats(
